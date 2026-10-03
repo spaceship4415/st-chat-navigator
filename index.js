@@ -1316,6 +1316,8 @@ let positionBadge = null;
 let positionBadgeTimer = 0;
 
 function showPositionBadge() {
+    // 시작 화면도 #chat에 메시지(안내·어시스턴트 인사)를 그리지만 열린 채팅은 아니다
+    if (!ctx().getCurrentChatId?.()) return;
     const chatEl = document.getElementById('chat');
     const sheld = document.getElementById('sheld');
     const index = topVisibleIndex();
