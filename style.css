@@ -436,3 +436,20 @@ dialog:has(.chatnav_search, .chatnav_hide, .chatnav_hub, .chatnav_popup) .popup-
     margin: 0;
 }
 
+/* ⋯ 메뉴의 삭제 버튼 */
+.mes .chatnav_delete_button:hover,
+.mes .chatnav_delete_button:focus-visible {
+    color: var(--fullred, #e05555);
+}
+
+/* .mes_button이 굵게(700) 잡혀 있어 빈 별(fa-regular, 400 전용)이 안 그려진다 */
+.mes .chatnav_bookmark_button.fa-regular {
+    font-weight: 400;
+}
+
+/* ⋯ 메뉴는 ST가 한 줄(nowrap)+넘치면 숨김이라, 좁은 화면에서는 왼쪽 버튼(☆)이 잘린다.
+   자리가 모자라면 다음 줄로 넘긴다. */
+#chat .mes .extraMesButtons {
+    flex-wrap: wrap;
+    row-gap: 6px;
+}

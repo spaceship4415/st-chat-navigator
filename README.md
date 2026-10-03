@@ -47,6 +47,8 @@ Wand menu → **Chat Navigator**.
 | Top / Bottom | Scroll to the first or the last message |
 
 Add a bookmark from the message itself: tap `⋯` on a message, then ☆. Tap ★ again to remove it.
+The same `⋯` menu also gets a 🗑 button that deletes just that message, without going into edit mode first.
+It asks before deleting, and asks separately if the message is bookmarked.
 
 In pick mode the message box is replaced by a bar with the count and the actions.
 Tapping a message only ticks it — editing, swiping and links are paused until you press **Done**.

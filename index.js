@@ -342,6 +342,7 @@ function goBottom() {
 
 const BOOKMARK_KEY = 'chatnav_bookmark';
 const BOOKMARK_BUTTON = '<div title="책갈피" class="mes_button chatnav_bookmark_button fa-regular fa-star"></div>';
+const DELETE_BUTTON = '<div title="이 메시지 삭제" class="mes_button chatnav_delete_button fa-solid fa-trash-can"></div>';
 
 function isBookmarked(message) {
     return !!message?.extra?.[BOOKMARK_KEY];
@@ -394,6 +395,16 @@ function addBookmarkButtons() {
         toastr.info(on ? `#${index} 책갈피에 추가했습니다.` : `#${index} 책갈피를 뺐습니다.`, '', { timeOut: 1500 });
     });
 
+    // ⋯ 메뉴의 삭제. ST 기본 삭제는 편집 모드에 들어가야 보여서 따로 둔다.
+    // 맨 끝에 두어 책갈피(맨 앞)와 떨어뜨린다. 확인은 범위 삭제와 같은 흐름(책갈피면 따로 묻기).
+    $('#message_template .extraMesButtons').append(DELETE_BUTTON);
+    $('#chat .extraMesButtons').each(function () {
+        if (!$(this).find('.chatnav_delete_button').length) $(this).append(DELETE_BUTTON);
+    });
+    $(document).on('click', '.chatnav_delete_button', function () {
+        const message = ctx().chat[Number($(this).closest('.mes').attr('mesid'))];
+        if (message) confirmAndDelete([message]);
+    });
 
     // 채팅 전환·이전 메시지 불러오기 등으로 메시지가 다시 그려지면 표시를 맞춘다.
     // requestAnimationFrame은 백그라운드 탭에서 멈추므로 타이머를 쓴다.
@@ -593,17 +604,24 @@ async function confirmAndDelete(messages) {
         const items = marked.slice(0, 10).map(m => `
             <li><b>#${chat.indexOf(m)}</b> ${escapeHtml(m.name)} · ${plainSnippet(m.mes)}</li>`).join('');
         const more = marked.length > 10 ? `<p>외 ${marked.length - 10}개</p>` : '';
+        // 전부 책갈피면 '빼고 삭제'는 남는 게 없으니 묻지 않고, 책갈피째 지울지만 묻는다
+        const allMarked = marked.length === targets.length;
         const result = await callGenericPopup(`
             <div class="chatnav_popup chatnav_mark_warn">
-                <h3><i class="fa-solid fa-star"></i> 책갈피한 메시지 ${marked.length}개가 포함되어 있습니다</h3>
+                <h3><i class="fa-solid fa-star"></i> ${allMarked && marked.length === 1 ? '책갈피한 메시지입니다' : `책갈피한 메시지 ${marked.length}개가 포함되어 있습니다`}</h3>
                 <ul>${items}</ul>${more}
-                <p>책갈피한 메시지는 남기고 나머지만 지울까요?</p>
-            </div>`, POPUP_TYPE.CONFIRM, '', {
+                <p>${allMarked ? '책갈피째 삭제할까요?' : '책갈피한 메시지는 남기고 나머지만 지울까요?'}</p>
+            </div>`, POPUP_TYPE.CONFIRM, '', allMarked ? {
+            okButton: '책갈피째 삭제',
+            cancelButton: '취소',
+        } : {
             okButton: '책갈피 빼고 삭제',
             cancelButton: '취소',
             customButtons: [{ text: '모두 삭제', result: DELETE_ALL, classes: ['chatnav_danger_button'] }],
         });
-        if (result === POPUP_RESULT.AFFIRMATIVE) {
+        if (allMarked) {
+            if (result !== POPUP_RESULT.AFFIRMATIVE) return false;
+        } else if (result === POPUP_RESULT.AFFIRMATIVE) {
             targets = targets.filter(m => !isBookmarked(m));
             keptMarks = marked.length;
         } else if (result !== DELETE_ALL) {
