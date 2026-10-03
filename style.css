@@ -675,3 +675,52 @@ dialog:has(.chatnav_search, .chatnav_hide, .chatnav_hub, .chatnav_popup) .popup-
     background-color: var(--white20a);
 }
 
+/* ---------- 읽던 곳 이어 보기 칩 ---------- */
+
+#chatnav_resume {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 31;
+    display: flex;
+    align-items: stretch;
+    max-width: calc(100% - 24px);
+    border: 1px solid var(--SmartThemeQuoteColor);
+    border-radius: 999px;
+    background-color: var(--SmartThemeBlurTintColor);
+    backdrop-filter: blur(var(--SmartThemeBlurStrength));
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+}
+
+#chatnav_resume button {
+    min-height: 44px;
+    border: none;
+    background: transparent;
+    color: var(--SmartThemeBodyColor);
+    font: inherit;
+    cursor: pointer;
+}
+
+.chatnav_resume_go {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 6px 0 16px;
+    white-space: nowrap;
+}
+
+.chatnav_resume_go i {
+    color: var(--SmartThemeQuoteColor);
+}
+
+.chatnav_resume_close {
+    width: 44px;
+    opacity: 0.6;
+}
+
+#chatnav_resume button:hover,
+#chatnav_resume button:focus-visible {
+    background-color: var(--white20a);
+}
+

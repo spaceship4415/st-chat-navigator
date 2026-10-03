@@ -1,4 +1,4 @@
-// 채팅 내비게이터: 마법봉 메뉴 하나로 현재 채팅 검색, 번호로 이동, 책갈피, 범위 숨기기·삭제, 골라서 숨기기·삭제, 맨 위/아래(떠 있는 버튼도), 답변 처음부터 읽기.
+// 채팅 내비게이터: 마법봉 메뉴 하나로 현재 채팅 검색, 번호로 이동, 책갈피, 범위 숨기기·삭제, 골라서 숨기기·삭제, 맨 위/아래(떠 있는 버튼도), 답변 처음부터 읽기, 읽던 위치 이어 보기.
 // 덤으로 N턴마다 / N토큰마다 알림을 띄운다.
 
 const MODULE = 'chat-navigator';
@@ -20,6 +20,7 @@ function getSettings() {
     s.floatTop ??= false;
     s.floatBottom ??= false;
     s.readFromTop ??= false;
+    s.resumePos ??= false;
     return s;
 }
 
@@ -1174,6 +1175,159 @@ function onReadMessageRendered(messageId) {
     }, 150);
 }
 
+// ---------- 읽던 위치 이어 보기 (설정에서 켬) ----------
+// 읽던 위치는 이 기기 브라우저(localStorage)에만 둔다. 채팅 파일에 두면 스크롤할 때마다
+// 채팅 전체를 다시 저장하게 되고, 폰과 PC에서 읽던 곳이 서로 다른 게 자연스럽기도 하다.
+
+const POS_PREFIX = 'chatnav_pos:';
+
+/** 화면 맨 위에 걸쳐 보이는 메시지 번호. 없으면 -1 */
+function topVisibleIndex() {
+    const chatEl = document.getElementById('chat');
+    const top = chatEl.getBoundingClientRect().top;
+    for (const element of chatEl.querySelectorAll('.mes')) {
+        if (element.getBoundingClientRect().bottom > top + 8) return Number(element.getAttribute('mesid'));
+    }
+    return -1;
+}
+
+function isChatAtBottom() {
+    const chatEl = document.getElementById('chat');
+    return chatEl.scrollHeight - chatEl.clientHeight - chatEl.scrollTop < 5;
+}
+
+function positionKey() {
+    const c = ctx();
+    const chatId = c.getCurrentChatId?.();
+    if (!chatId) return null;
+    const owner = c.groupId || c.characters?.[c.characterId]?.avatar || '';
+    return POS_PREFIX + owner + ':' + chatId;
+}
+
+function readPosition(key) {
+    try {
+        return JSON.parse(localStorage.getItem(key) ?? 'null');
+    } catch {
+        return null;
+    }
+}
+
+function writePosition(key, value) {
+    try {
+        if (value) localStorage.setItem(key, JSON.stringify(value));
+        else localStorage.removeItem(key);
+    } catch {
+        // 사생활 보호 모드 등에서 막혀도 기능만 빠질 뿐 문제없다
+    }
+}
+
+let positionMuteUntil = 0;
+let positionSaveTimer = 0;
+
+/** 채팅 전환 직후 ST가 맨 아래로 내리는 스크롤은 '읽던 곳'으로 치지 않는다 */
+function mutePositionSaving(ms) {
+    positionMuteUntil = Date.now() + ms;
+}
+
+function savePositionNow() {
+    if (!getSettings().resumePos || Date.now() < positionMuteUntil) return;
+    const key = positionKey();
+    if (!key) return;
+    if (isChatAtBottom()) {
+        writePosition(key, null); // 맨 아래면 따로 기억할 게 없다
+        return;
+    }
+    const index = topVisibleIndex();
+    const message = ctx().chat[index];
+    if (!message) return;
+    writePosition(key, { index, date: message.send_date ?? null });
+}
+
+/** 저장된 위치를 지금 채팅의 번호로. 그 사이 메시지가 지워졌으면 보낸 시각으로 다시 찾는다 */
+function resolvePosition(saved) {
+    const chat = ctx().chat;
+    if (!saved || !Number.isInteger(saved.index)) return -1;
+    if (chat[saved.index] && (saved.date == null || chat[saved.index].send_date === saved.date)) return saved.index;
+    if (saved.date != null) {
+        const found = chat.findIndex(m => m?.send_date === saved.date);
+        if (found >= 0) return found;
+    }
+    return -1;
+}
+
+let resumeChip = null;
+let resumeTimer = 0;
+
+function hideResumeChip() {
+    clearTimeout(resumeTimer);
+    resumeChip?.remove();
+    resumeChip = null;
+}
+
+/** 떠 있는 버튼이 있으면 그 위에, 없으면 채팅 아래 끝에 붙는 위치(px) */
+function bottomStackOffset() {
+    const chatEl = document.getElementById('chat');
+    const sheld = document.getElementById('sheld');
+    const below = Math.max(0, sheld.getBoundingClientRect().bottom - chatEl.getBoundingClientRect().bottom);
+    const pillShown = floating && !floating.classList.contains('chatnav_hidden');
+    return below + 12 + (pillShown ? 44 + 8 : 0);
+}
+
+function showResumeChip(index) {
+    hideResumeChip();
+    const sheld = document.getElementById('sheld');
+    resumeChip = document.createElement('div');
+    resumeChip.id = 'chatnav_resume';
+    resumeChip.innerHTML = `
+        <button type="button" class="chatnav_resume_go"><i class="fa-solid fa-book-open"></i>읽던 곳 #${index} 이어 보기</button>
+        <button type="button" class="chatnav_resume_close" title="닫기" aria-label="닫기"><i class="fa-solid fa-xmark"></i></button>
+    `;
+    resumeChip.style.bottom = `${bottomStackOffset()}px`;
+    resumeChip.querySelector('.chatnav_resume_go').addEventListener('click', async () => {
+        hideResumeChip();
+        if (!await confirmFarJump(index)) return;
+        await jumpTo(index);
+    });
+    resumeChip.querySelector('.chatnav_resume_close').addEventListener('click', hideResumeChip);
+    sheld.append(resumeChip);
+    // 오래 남아 있으면 거슬리니 잠시 뒤 사라진다
+    resumeTimer = setTimeout(hideResumeChip, 15000);
+}
+
+function onPositionChatChanged() {
+    hideResumeChip();
+    // ST가 채팅을 그리며 맨 아래로 내리는 동안은 저장하지 않는다
+    mutePositionSaving(2000);
+    if (!getSettings().resumePos) return;
+    const key = positionKey();
+    if (!key) return;
+    const saved = readPosition(key);
+    setTimeout(() => {
+        if (positionKey() !== key) return; // 그새 다른 채팅으로 갔다
+        const index = resolvePosition(saved);
+        const last = ctx().chat.length - 1;
+        if (index < 0 || index >= last) return;
+        showResumeChip(index);
+    }, 400);
+}
+
+function onPositionScroll() {
+    // 채팅을 여는 동안 ST가 내리는 스크롤은 기억하지 않는다
+    if (Date.now() < positionMuteUntil) return;
+    if (getSettings().resumePos) {
+        clearTimeout(positionSaveTimer);
+        positionSaveTimer = setTimeout(savePositionNow, 500);
+    }
+}
+
+function setupPosition() {
+    document.getElementById('chat').addEventListener('scroll', onPositionScroll, { passive: true });
+    // 폰에서 앱을 내리거나 탭을 닫을 때도 마지막 위치를 남긴다
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') savePositionNow();
+    });
+}
+
 // ---------- UI ----------
 
 function addWandButton() {
@@ -1203,6 +1357,10 @@ function addSettingsPanel() {
                     <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
                 </div>
                 <div class="inline-drawer-content">
+                    <label class="checkbox_label chatnav_row">
+                        <input type="checkbox" id="chatnav_resume_pos">
+                        <span>읽던 위치 이어 보기</span>
+                    </label>
                     <label class="checkbox_label chatnav_row">
                         <input type="checkbox" id="chatnav_read_top">
                         <span>답변이 오면 처음 부분에서 멈추기</span>
@@ -1262,9 +1420,17 @@ function addSettingsPanel() {
             setFloating(s.floatTop || s.floatBottom);
         });
     };
-    $('#chatnav_read_top').prop('checked', s.readFromTop).on('change', function () {
-        s.readFromTop = $(this).prop('checked');
-        save();
+    const bindPlain = (id, key, after) => {
+        $(id).prop('checked', s[key]).on('change', function () {
+            s[key] = $(this).prop('checked');
+            save();
+            after?.(s[key]);
+        });
+    };
+    bindPlain('#chatnav_read_top', 'readFromTop');
+    bindPlain('#chatnav_resume_pos', 'resumePos', (on) => {
+        if (on) savePositionNow();
+        else hideResumeChip();
     });
     bindFloat('#chatnav_float_bottom', 'floatBottom');
     bindFloat('#chatnav_float_top', 'floatTop');
@@ -1280,9 +1446,11 @@ jQuery(() => {
     addBookmarkButtons();
     addSettingsPanel();
     setFloating(getSettings().floatTop || getSettings().floatBottom);
+    setupPosition();
 
     const { eventSource, eventTypes } = ctx();
     eventSource.on(eventTypes.CHAT_CHANGED, () => {
+        onPositionChatChanged();
         exitSelectMode();
         tokenCache.clear();
         checkAlerts();
