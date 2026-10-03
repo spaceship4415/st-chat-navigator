@@ -1,4 +1,4 @@
-// 채팅 내비게이터: 마법봉 메뉴 하나로 현재 채팅 검색, 번호로 이동, 책갈피, 범위 숨기기·삭제, 골라서 숨기기·삭제, 맨 위/아래.
+// 채팅 내비게이터: 마법봉 메뉴 하나로 현재 채팅 검색, 번호로 이동, 책갈피, 범위 숨기기·삭제, 골라서 숨기기·삭제, 맨 위/아래(떠 있는 버튼도).
 // 덤으로 N턴마다 / N토큰마다 알림을 띄운다.
 
 const MODULE = 'chat-navigator';
@@ -17,6 +17,8 @@ function getSettings() {
     s.turnEvery ??= 20;
     s.tokenAlert ??= false;
     s.tokenEvery ??= 10000;
+    s.floatTop ??= false;
+    s.floatBottom ??= false;
     return s;
 }
 
@@ -414,6 +416,7 @@ function addBookmarkButtons() {
         timer = setTimeout(() => {
             paintBookmarks();
             paintSelection();
+            updateFloating();
         }, 50);
     }).observe(document.getElementById('chat'), { childList: true });
     paintBookmarks();
@@ -993,6 +996,78 @@ async function openHub() {
     await popup.show();
 }
 
+// ---------- 떠 있는 맨 위/아래 버튼 (설정에서 켬) ----------
+// 채팅 영역 아래 가운데에 작은 알약 모양으로 띄운다. 오른쪽은 메시지의 … ·연필,
+// 마지막 AI 메시지의 스와이프 화살표가 있어서 피한다.
+// 입력창·선택 막대 높이가 바뀌면 채팅 영역 아래 끝을 따라간다.
+
+const FLOAT_GAP = 12;
+
+let floating = null;
+let floatResize = null;
+let floatTimer = 0;
+
+function updateFloating() {
+    if (!floating) return;
+    const chatEl = document.getElementById('chat');
+    const sheld = document.getElementById('sheld');
+    if (!chatEl || !sheld) return;
+
+    const below = sheld.getBoundingClientRect().bottom - chatEl.getBoundingClientRect().bottom;
+    floating.style.bottom = `${Math.max(0, below) + FLOAT_GAP}px`;
+
+    // 화면 위쪽 끝이어도 아직 안 불러온 이전 메시지가 있으면 '맨 위로'는 쓸모가 있다
+    const atTop = chatEl.scrollTop <= 4 && firstRenderedIndex() === 0;
+    const atBottom = chatEl.scrollHeight - chatEl.clientHeight - chatEl.scrollTop <= 4;
+    const s = getSettings();
+    const showTop = s.floatTop && !atTop;
+    const showBottom = s.floatBottom && !atBottom;
+    const open = !!ctx().getCurrentChatId?.() && ctx().chat.length > 0;
+    floating.classList.toggle('chatnav_hidden', !open || (!showTop && !showBottom));
+    floating.querySelector('[data-act="top"]').classList.toggle('chatnav_off', !showTop);
+    floating.querySelector('[data-act="bottom"]').classList.toggle('chatnav_off', !showBottom);
+}
+
+function onFloatScroll() {
+    clearTimeout(floatTimer);
+    floatTimer = setTimeout(updateFloating, 80);
+}
+
+function setFloating(on) {
+    const chatEl = document.getElementById('chat');
+    const sheld = document.getElementById('sheld');
+    if (!chatEl || !sheld) return;
+
+    if (on && !floating) {
+        floating = document.createElement('div');
+        floating.id = 'chatnav_floating';
+        floating.innerHTML = `
+            <button type="button" data-act="top" title="맨 위로" aria-label="맨 위로"><i class="fa-solid fa-angles-up"></i></button>
+            <button type="button" data-act="bottom" title="맨 아래로" aria-label="맨 아래로"><i class="fa-solid fa-angles-down"></i></button>
+        `;
+        floating.addEventListener('click', (event) => {
+            const button = event.target.closest('button[data-act]');
+            if (!button) return;
+            if (button.dataset.act === 'top') goTop();
+            else goBottom();
+        });
+        sheld.append(floating);
+        chatEl.addEventListener('scroll', onFloatScroll, { passive: true });
+        floatResize = new ResizeObserver(updateFloating);
+        floatResize.observe(chatEl);
+        floatResize.observe(sheld);
+        updateFloating();
+    } else if (on && floating) {
+        updateFloating();
+    } else if (!on && floating) {
+        chatEl.removeEventListener('scroll', onFloatScroll);
+        floatResize?.disconnect();
+        floatResize = null;
+        floating.remove();
+        floating = null;
+    }
+}
+
 // ---------- UI ----------
 
 function addWandButton() {
@@ -1022,6 +1097,14 @@ function addSettingsPanel() {
                     <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
                 </div>
                 <div class="inline-drawer-content">
+                    <label class="checkbox_label chatnav_row">
+                        <input type="checkbox" id="chatnav_float_bottom">
+                        <span>맨 아래로 버튼 띄우기</span>
+                    </label>
+                    <label class="checkbox_label chatnav_row">
+                        <input type="checkbox" id="chatnav_float_top">
+                        <span>맨 위로 버튼 띄우기</span>
+                    </label>
                     <label class="checkbox_label chatnav_row">
                         <input type="checkbox" id="chatnav_turn_alert">
                         <span>턴 알림</span>
@@ -1062,6 +1145,15 @@ function addSettingsPanel() {
         });
     };
 
+    const bindFloat = (id, key) => {
+        $(id).prop('checked', s[key]).on('change', function () {
+            s[key] = $(this).prop('checked');
+            save();
+            setFloating(s.floatTop || s.floatBottom);
+        });
+    };
+    bindFloat('#chatnav_float_bottom', 'floatBottom');
+    bindFloat('#chatnav_float_top', 'floatTop');
     bindCheck('#chatnav_turn_alert', 'turnAlert');
     bindCheck('#chatnav_token_alert', 'tokenAlert');
     bindNumber('#chatnav_turn_every', 'turnEvery', 1);
@@ -1073,6 +1165,7 @@ jQuery(() => {
     addWandButton();
     addBookmarkButtons();
     addSettingsPanel();
+    setFloating(getSettings().floatTop || getSettings().floatBottom);
 
     const { eventSource, eventTypes } = ctx();
     eventSource.on(eventTypes.CHAT_CHANGED, () => {

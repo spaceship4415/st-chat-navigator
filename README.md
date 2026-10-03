@@ -21,7 +21,7 @@ and hide or delete a range of messages — all with buttons sized for a phone.
   If bookmarked messages are among them, it lists them first and offers to delete everything else instead (the default) or everything.
 - **Pick messages to hide or delete** — tap messages to tick them, or switch on *Range* and tap the first and the last.
   Scattered picks like `#3, #4, #5, #9` are handled in one go.
-- **Top / bottom** — one tap to either end of the chat.
+- **Top / bottom** — one tap to either end of the chat, from the panel or, if you switch them on, as floating buttons above the message box.
 - **A clear "hidden" badge** next to the name of every hidden message, beside SillyTavern's own small ghost icon.
 - **Turn and token alerts** — optional: a notice every N AI replies, or every time the chat passes another N tokens.
 - **Careful with big chats** — jumping or going to the top asks first when it would load more than 300 messages, since drawing that many at once can freeze a phone for a moment.
@@ -60,6 +60,8 @@ Extensions → **Chat Navigator**.
 
 | Setting | What it does |
 | --- | --- |
+| Float a scroll-to-bottom button | Shows ⇊ at the bottom centre of the chat whenever you are not at the bottom |
+| Float a scroll-to-top button | Shows ⇈ next to it whenever you are not at the top. Both are off by default; turn on either or both |
 | Turn alert, every N turns | Shows a notice each time the number of AI replies reaches another multiple of N |
 | Token alert, every N tokens | Shows a notice each time the whole chat passes another multiple of N tokens |
 
