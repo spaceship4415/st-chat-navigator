@@ -17,7 +17,8 @@ and hide or delete a range of messages — all with buttons sized for a phone.
   The mark is stored on the message itself, so it follows the message when earlier ones are deleted.
 - **Hide a range** — keep messages on screen but leave them out of what the AI sees, to save tokens. Undo the same way.
   The range starts out leaving the latest 20 messages untouched.
-- **Delete a range** — starts empty and asks twice, saying how many messages and bookmarks will go.
+- **Delete a range** — starts empty and asks twice, saying how many messages will go.
+  If bookmarked messages are among them, it lists them first and offers to delete everything else instead (the default) or everything.
 - **Pick messages to hide or delete** — tap messages to tick them, or switch on *Range* and tap the first and the last.
   Scattered picks like `#3, #4, #5, #9` are handled in one go.
 - **Top / bottom** — one tap to either end of the chat.

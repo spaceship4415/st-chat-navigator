@@ -389,3 +389,50 @@ dialog:has(.chatnav_popup) .popup-input {
     color: var(--fullred, #e05555);
 }
 
+/* 삭제 범위에 책갈피가 섞였을 때 */
+.chatnav_mark_warn {
+    display: block;
+    text-align: left;
+}
+
+.chatnav_mark_warn h3 {
+    margin: 0 0 8px;
+    font-size: 1.05em;
+}
+
+.chatnav_mark_warn h3 i {
+    color: var(--SmartThemeQuoteColor);
+}
+
+.chatnav_mark_warn ul {
+    margin: 0 0 8px;
+    padding-left: 1.2em;
+    max-height: 40vh;
+    overflow-y: auto;
+    overflow-wrap: anywhere;
+}
+
+.chatnav_mark_warn li {
+    margin: 4px 0;
+}
+
+.chatnav_mark_warn p {
+    margin: 4px 0;
+}
+
+dialog .chatnav_danger_button {
+    color: var(--fullred, #e05555);
+}
+
+/* 버튼 글자는 한 줄로, 자리가 모자라면 버튼이 다음 줄로 */
+dialog:has(.chatnav_search, .chatnav_hide, .chatnav_hub, .chatnav_popup) .popup-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+}
+
+dialog:has(.chatnav_search, .chatnav_hide, .chatnav_hub, .chatnav_popup) .popup-controls .menu_button {
+    white-space: nowrap;
+    margin: 0;
+}
+

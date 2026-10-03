@@ -548,11 +548,111 @@ async function openHidePopup() {
     toastr.success(`#${range.from} ~ #${range.to} (${range.count.toLocaleString()}개)를 ${unhide ? '되돌렸습니다' : '숨겼습니다'}.`);
 }
 
+// ---------- 삭제 (범위·골라서 공용) ----------
+
+/** 메시지 객체들의 현재 번호(오름차순). 이미 지워진 건 빠진다. */
+function indicesOf(messages) {
+    const wanted = new Set(messages);
+    const indices = [];
+    ctx().chat.forEach((message, index) => {
+        if (wanted.has(message)) indices.push(index);
+    });
+    return indices;
+}
+
+/** [3,4,5,9] → [{from:3,to:5},{from:9,to:9}] */
+function toRuns(indices) {
+    const runs = [];
+    for (const index of indices) {
+        const lastRun = runs[runs.length - 1];
+        if (lastRun && lastRun.to === index - 1) lastRun.to = index;
+        else runs.push({ from: index, to: index });
+    }
+    return runs;
+}
+
+function describeRuns(runs) {
+    return runs.slice(0, 5).map(r => (r.from === r.to ? `#${r.from}` : `#${r.from} ~ #${r.to}`)).join(', ')
+        + (runs.length > 5 ? ` 외 ${runs.length - 5}곳` : '');
+}
+
+/**
+ * 확인하고 지운다. 지웠으면 true.
+ * 책갈피한 메시지가 섞여 있으면 먼저 따로 묻는다. 기본(엔터)은 '책갈피 빼고 삭제'.
+ * 번호가 아니라 메시지 객체로 받아서, 확인 창을 띄운 사이 채팅이 바뀌어도 지울 때 번호를 다시 계산한다.
+ */
+async function confirmAndDelete(messages) {
+    const { chat, callGenericPopup, POPUP_TYPE, POPUP_RESULT } = ctx();
+    let targets = indicesOf(messages).map(i => chat[i]);
+    if (!targets.length) return false;
+
+    const marked = targets.filter(isBookmarked);
+    let keptMarks = 0;
+    if (marked.length) {
+        const DELETE_ALL = 2;
+        const items = marked.slice(0, 10).map(m => `
+            <li><b>#${chat.indexOf(m)}</b> ${escapeHtml(m.name)} · ${plainSnippet(m.mes)}</li>`).join('');
+        const more = marked.length > 10 ? `<p>외 ${marked.length - 10}개</p>` : '';
+        const result = await callGenericPopup(`
+            <div class="chatnav_popup chatnav_mark_warn">
+                <h3><i class="fa-solid fa-star"></i> 책갈피한 메시지 ${marked.length}개가 포함되어 있습니다</h3>
+                <ul>${items}</ul>${more}
+                <p>책갈피한 메시지는 남기고 나머지만 지울까요?</p>
+            </div>`, POPUP_TYPE.CONFIRM, '', {
+            okButton: '책갈피 빼고 삭제',
+            cancelButton: '취소',
+            customButtons: [{ text: '모두 삭제', result: DELETE_ALL, classes: ['chatnav_danger_button'] }],
+        });
+        if (result === POPUP_RESULT.AFFIRMATIVE) {
+            targets = targets.filter(m => !isBookmarked(m));
+            keptMarks = marked.length;
+        } else if (result !== DELETE_ALL) {
+            return false;
+        }
+        if (!targets.length) {
+            toastr.info('책갈피를 빼니 지울 메시지가 없습니다.');
+            return false;
+        }
+    }
+
+    // 마지막 확인
+    const indices = indicesOf(targets);
+    const lostMarks = keptMarks ? 0 : marked.length;
+    const lines = [
+        `메시지 <b>${indices.length.toLocaleString()}개</b>를 삭제합니다.`,
+        describeRuns(toRuns(indices)),
+        keptMarks ? `책갈피 ${keptMarks}개는 남깁니다.` : '',
+        lostMarks ? `<b>책갈피 ${lostMarks}개도 함께 사라집니다.</b>` : '',
+        indices.length === chat.length ? '<b>채팅의 모든 메시지</b>입니다.' : '',
+        indices.length > FAR_JUMP ? '개수가 많아 시간이 걸릴 수 있습니다.' : '',
+        '되돌릴 수 없습니다.',
+    ].filter(Boolean);
+    const confirmed = await callGenericPopup(`<span class="chatnav_popup">${lines.join('<br>')}</span>`, POPUP_TYPE.CONFIRM, '', {
+        okButton: '삭제',
+        cancelButton: '취소',
+    });
+    if (confirmed !== POPUP_RESULT.AFFIRMATIVE) return false;
+
+    const progress = indices.length > 20
+        ? toastr.info(`메시지 ${indices.length.toLocaleString()}개를 삭제하는 중…`, '', { timeOut: 0, extendedTimeOut: 0 })
+        : null;
+    try {
+        // 뒤 구간부터 지워서 앞 번호가 밀리지 않게 한다
+        for (const run of toRuns(indicesOf(targets)).reverse()) {
+            await ctx().executeSlashCommandsWithOptions(`/cut ${run.from}-${run.to}`);
+        }
+        toastr.success(`메시지 ${indices.length.toLocaleString()}개를 삭제했습니다.` + (keptMarks ? ` (책갈피 ${keptMarks}개는 남김)` : ''));
+    } finally {
+        if (progress) toastr.clear(progress);
+    }
+    return true;
+}
+
 // ---------- 범위 삭제 ----------
 
 async function openDeletePopup() {
     if (!hasChat()) return;
-    const { chat, Popup, POPUP_TYPE, POPUP_RESULT, callGenericPopup } = ctx();
+    const { chat, Popup, POPUP_TYPE, POPUP_RESULT } = ctx();
     if (!chat.length) return;
 
     const countBookmarks = ({ from, to }) => chat.slice(from, to + 1).filter(isBookmarked).length;
@@ -579,31 +679,7 @@ async function openDeletePopup() {
         toastr.warning(`0 ~ ${form.last} 사이 번호를 넣으세요.`);
         return;
     }
-
-    // 한 번 더 확인
-    const marks = countBookmarks(range);
-    const lines = [
-        `<b>#${range.from} ~ #${range.to}</b>, 메시지 <b>${range.count.toLocaleString()}개</b>를 삭제합니다.`,
-        marks ? `책갈피 ${marks}개도 함께 사라집니다.` : '',
-        range.count === chat.length ? '<b>채팅의 모든 메시지</b>입니다.' : '',
-        range.count > FAR_JUMP ? '개수가 많아 시간이 걸릴 수 있습니다.' : '',
-        '되돌릴 수 없습니다.',
-    ].filter(Boolean);
-    const confirmed = await callGenericPopup(`<span class="chatnav_popup">${lines.join('<br>')}</span>`, POPUP_TYPE.CONFIRM, '', {
-        okButton: '삭제',
-        cancelButton: '취소',
-    });
-    if (confirmed !== POPUP_RESULT.AFFIRMATIVE) return;
-
-    const progress = range.count > 20
-        ? toastr.info(`메시지 ${range.count.toLocaleString()}개를 삭제하는 중…`, '', { timeOut: 0, extendedTimeOut: 0 })
-        : null;
-    try {
-        await ctx().executeSlashCommandsWithOptions(`/cut ${range.from}-${range.to}`);
-        toastr.success(`#${range.from} ~ #${range.to} (${range.count.toLocaleString()}개)를 삭제했습니다.`);
-    } finally {
-        if (progress) toastr.clear(progress);
-    }
+    await confirmAndDelete(chat.slice(range.from, range.to + 1));
 }
 
 // ---------- 골라서 숨기기·삭제 (선택 모드) ----------
@@ -629,17 +705,6 @@ function pickedIndices() {
         if (selection.picked.has(message)) indices.push(index);
     });
     return indices;
-}
-
-/** [3,4,5,9] → [{from:3,to:5},{from:9,to:9}] */
-function toRuns(indices) {
-    const runs = [];
-    for (const index of indices) {
-        const lastRun = runs[runs.length - 1];
-        if (lastRun && lastRun.to === index - 1) lastRun.to = index;
-        else runs.push({ from: index, to: index });
-    }
-    return runs;
 }
 
 function paintSelection() {
@@ -817,43 +882,14 @@ async function applyHide(unhide) {
 }
 
 async function applyDelete() {
-    if (applying) return;
-    const indices = pickedIndices();
-    if (!indices.length) return;
-    const { chat, callGenericPopup, POPUP_TYPE, POPUP_RESULT } = ctx();
-
-    const runs = toRuns(indices);
-    const marks = indices.filter(i => isBookmarked(chat[i])).length;
-    const preview = runs.slice(0, 5).map(r => (r.from === r.to ? `#${r.from}` : `#${r.from}~#${r.to}`)).join(', ')
-        + (runs.length > 5 ? ` 외 ${runs.length - 5}곳` : '');
-    const lines = [
-        `고른 메시지 <b>${indices.length.toLocaleString()}개</b>를 삭제합니다.`,
-        preview,
-        marks ? `책갈피 ${marks}개도 함께 사라집니다.` : '',
-        indices.length === chat.length ? '<b>채팅의 모든 메시지</b>입니다.' : '',
-        '되돌릴 수 없습니다.',
-    ].filter(Boolean);
-    const confirmed = await callGenericPopup(`<span class="chatnav_popup">${lines.join('<br>')}</span>`, POPUP_TYPE.CONFIRM, '', {
-        okButton: '삭제',
-        cancelButton: '취소',
-    });
-    if (confirmed !== POPUP_RESULT.AFFIRMATIVE) return;
-
+    if (applying || !selection.picked.size) return;
     applying = true;
-    const progress = indices.length > 20
-        ? toastr.info(`메시지 ${indices.length.toLocaleString()}개를 삭제하는 중…`, '', { timeOut: 0, extendedTimeOut: 0 })
-        : null;
     try {
-        // 확인 창을 띄운 사이 채팅이 바뀌었을 수 있으니 번호를 다시 계산하고,
-        // 뒤 구간부터 지워서 앞 번호가 밀리지 않게 한다
-        for (const run of toRuns(pickedIndices()).reverse()) {
-            await ctx().executeSlashCommandsWithOptions(`/cut ${run.from}-${run.to}`);
+        if (await confirmAndDelete([...selection.picked])) {
+            selection.picked.clear();
+            if (selection.active) updateSelectionBar();
         }
-        toastr.success(`메시지 ${indices.length.toLocaleString()}개를 삭제했습니다.`);
-        selection.picked.clear();
-        if (selection.active) updateSelectionBar();
     } finally {
-        if (progress) toastr.clear(progress);
         applying = false;
     }
 }
