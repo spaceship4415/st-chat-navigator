@@ -918,41 +918,77 @@ async function openHub() {
     if (!hasChat()) return;
     exitSelectMode();
     const { Popup, POPUP_TYPE, chat } = ctx();
+    const marks = bookmarkedIndices().length;
 
-    const items = [
-        { icon: 'fa-magnifying-glass', label: '채팅 검색', run: openSearchPopup, wide: true },
-        { icon: 'fa-arrow-down-1-9', label: '번호로 이동', run: openJumpPopup },
-        { icon: 'fa-star', label: `책갈피 (${bookmarkedIndices().length})`, run: openBookmarksPopup },
-        { icon: 'fa-eye-slash', label: '범위 숨기기', run: openHidePopup },
-        { icon: 'fa-trash-can', label: '범위 삭제', run: openDeletePopup, danger: true },
-        { icon: 'fa-list-check', label: '골라서 숨기기·삭제', run: enterSelectMode, wide: true },
-        { icon: 'fa-angles-up', label: '맨 위로', run: goTop },
-        { icon: 'fa-angles-down', label: '맨 아래로', run: goBottom },
-    ];
+    const actions = {
+        search: openSearchPopup,
+        jump: openJumpPopup,
+        top: goTop,
+        bottom: goBottom,
+        bookmarks: openBookmarksPopup,
+        hide: openHidePopup,
+        pick: enterSelectMode,
+        delete: openDeletePopup,
+    };
+
+    // 검색 / 이동(3칸) / 책갈피 / 정리(목록) 로 묶는다
+    const row = (act, icon, label, extra = '') => `
+        <button type="button" class="chatnav_hub_row${act === 'delete' ? ' chatnav_hub_danger' : ''}" data-act="${act}">
+            <i class="fa-solid ${icon} chatnav_hub_icon"></i>
+            <span class="chatnav_hub_label">${label}</span>
+            ${extra}
+            <i class="fa-solid fa-chevron-right chatnav_hub_chevron"></i>
+        </button>`;
+    const tile = (act, icon, label) => `
+        <button type="button" class="chatnav_hub_tile" data-act="${act}">
+            <i class="fa-solid ${icon}"></i>
+            <span>${label}</span>
+        </button>`;
 
     const root = document.createElement('div');
     root.className = 'chatnav_hub';
     root.innerHTML = `
-        <h3>채팅 내비게이터</h3>
-        <div class="chatnav_hint">메시지 ${chat.length.toLocaleString()}개 (#0 ~ #${Math.max(0, chat.length - 1)})</div>
-        <div class="chatnav_hub_grid"></div>
-    `;
-    const grid = root.querySelector('.chatnav_hub_grid');
-    const popup = new Popup(root, POPUP_TYPE.TEXT, '', { okButton: '닫기' });
+        <div class="chatnav_hub_head">
+            <div>
+                <h3>채팅 내비게이터</h3>
+                <div class="chatnav_hub_sub">메시지 ${chat.length.toLocaleString()}개 · #0 ~ #${Math.max(0, chat.length - 1)}</div>
+            </div>
+            <button type="button" class="chatnav_hub_close" data-act="close" title="닫기" aria-label="닫기">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
 
-    for (const item of items) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'chatnav_hub_button';
-        if (item.wide) button.classList.add('chatnav_hub_wide');
-        if (item.danger) button.classList.add('chatnav_hub_danger');
-        button.innerHTML = `<i class="fa-solid ${item.icon}"></i><span>${escapeHtml(item.label)}</span>`;
-        button.addEventListener('click', async () => {
-            await popup.completeCancelled();
-            await item.run();
-        });
-        grid.append(button);
-    }
+        <button type="button" class="chatnav_hub_search" data-act="search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <span>이 채팅에서 검색</span>
+        </button>
+
+        <div class="chatnav_hub_section">이동</div>
+        <div class="chatnav_hub_tiles">
+            ${tile('jump', 'fa-hashtag', '번호로 이동')}
+            ${tile('top', 'fa-angles-up', '맨 위로')}
+            ${tile('bottom', 'fa-angles-down', '맨 아래로')}
+        </div>
+
+        <div class="chatnav_hub_card">
+            ${row('bookmarks', 'fa-star', '책갈피', `<span class="chatnav_hub_badge${marks ? '' : ' chatnav_zero'}">${marks}</span>`)}
+        </div>
+
+        <div class="chatnav_hub_section">정리</div>
+        <div class="chatnav_hub_card">
+            ${row('hide', 'fa-eye-slash', '범위 숨기기')}
+            ${row('pick', 'fa-list-check', '골라서 숨기기·삭제')}
+            ${row('delete', 'fa-trash-can', '범위 삭제')}
+        </div>
+    `;
+
+    const popup = new Popup(root, POPUP_TYPE.TEXT, '', { okButton: false });
+    root.addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-act]');
+        if (!button) return;
+        await popup.completeCancelled();
+        await actions[button.dataset.act]?.();
+    });
 
     await popup.show();
 }

@@ -102,9 +102,8 @@
     font-size: 16px; /* iOS 확대 방지 */
 }
 
-/* ---------- 메뉴판 ---------- */
+/* ---------- 팝업 공용 ---------- */
 
-.chatnav_hub h3,
 .chatnav_hide h3 {
     margin: 0 0 4px;
 }
@@ -115,35 +114,194 @@
     margin: 0 0 10px;
 }
 
-.chatnav_hub_grid {
+/* ---------- 메뉴판 ---------- */
+
+.chatnav_hub {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 6px;
+    text-align: left;
+}
+
+.chatnav_hub_head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 2px 0 4px;
+}
+
+.chatnav_hub_head h3 {
+    margin: 0;
+    font-size: 1.15em;
+}
+
+.chatnav_hub_sub {
+    font-size: 0.85em;
+    opacity: 0.6;
+    margin-top: 2px;
+}
+
+.chatnav_hub button {
+    font: inherit;
+    color: var(--SmartThemeBodyColor);
+    cursor: pointer;
+}
+
+.chatnav_hub_close {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    margin: -6px -6px 0 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    font-size: 1.15em;
+    opacity: 0.6;
+}
+
+.chatnav_hub_close:hover,
+.chatnav_hub_close:focus-visible {
+    opacity: 1;
+    background-color: var(--white20a);
+}
+
+/* 검색창처럼 생긴 버튼 */
+.chatnav_hub_search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 48px;
+    padding: 0 16px;
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 999px;
+    background-color: var(--black30a);
+    text-align: left;
+}
+
+.chatnav_hub_search span {
+    opacity: 0.6;
+}
+
+.chatnav_hub_search:hover,
+.chatnav_hub_search:focus-visible {
+    background-color: var(--white20a);
+}
+
+.chatnav_hub_section {
+    margin: 6px 4px -4px;
+    font-size: 0.8em;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    opacity: 0.55;
+}
+
+/* 이동: 같은 크기 3칸 */
+.chatnav_hub_tiles {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
 }
 
-.chatnav_hub_button {
+.chatnav_hub_tile {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    min-height: 72px;
-    padding: 10px 6px;
-    color: var(--SmartThemeBodyColor);
-    background-color: var(--black30a);
+    min-height: 68px;
+    padding: 8px 4px;
     border: 1px solid var(--SmartThemeBorderColor);
-    border-radius: 10px;
-    cursor: pointer;
-    font: inherit;
+    border-radius: 12px;
+    background-color: var(--black30a);
+    font-size: 0.9em;
 }
 
-.chatnav_hub_button i {
-    font-size: 1.3em;
+.chatnav_hub_tile i {
+    font-size: 1.2em;
+    opacity: 0.85;
 }
 
-.chatnav_hub_button:hover,
-.chatnav_hub_button:focus-visible {
+/* 책갈피·정리: 한 카드 안의 목록 */
+.chatnav_hub_card {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 12px;
+    background-color: var(--black30a);
+    overflow: hidden;
+}
+
+.chatnav_hub_row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 50px;
+    padding: 0 14px;
+    border: none;
+    background: transparent;
+    text-align: left;
+}
+
+.chatnav_hub_row + .chatnav_hub_row {
+    border-top: 1px solid var(--SmartThemeBorderColor);
+}
+
+.chatnav_hub_icon {
+    width: 20px;
+    text-align: center;
+    opacity: 0.85;
+}
+
+.chatnav_hub_label {
+    flex: 1;
+    min-width: 0;
+}
+
+.chatnav_hub_chevron {
+    font-size: 0.75em;
+    opacity: 0.35;
+}
+
+.chatnav_hub_badge {
+    min-width: 24px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.8em;
+    text-align: center;
+    color: var(--SmartThemeBlurTintColor, #000);
+    background-color: var(--SmartThemeQuoteColor);
+}
+
+.chatnav_hub_badge.chatnav_zero {
+    color: inherit;
     background-color: var(--white20a);
+    opacity: 0.7;
+}
+
+.chatnav_hub .fa-star.chatnav_hub_icon {
+    color: var(--SmartThemeQuoteColor);
+    opacity: 1;
+}
+
+.chatnav_hub_danger,
+.chatnav_hub_danger .chatnav_hub_icon {
+    color: var(--fullred, #e05555);
+}
+
+.chatnav_hub_tile:hover,
+.chatnav_hub_tile:focus-visible,
+.chatnav_hub_row:hover,
+.chatnav_hub_row:focus-visible {
+    background-color: var(--white20a);
+}
+
+/* 닫기는 머리의 ✕로. 아래 버튼 줄은 숨긴다 */
+dialog:has(.chatnav_hub) .popup-controls {
+    display: none;
 }
 
 /* ---------- 책갈피 ---------- */
@@ -254,20 +412,6 @@ dialog:has(.chatnav_popup) .popup-input {
     border: 1px solid currentColor;
     border-radius: 999px;
     white-space: nowrap;
-}
-
-.chatnav_hub_wide {
-    grid-column: 1 / -1;
-    flex-direction: row;
-    min-height: 56px;
-}
-
-.chatnav_hub_danger {
-    border-color: var(--crimson70a);
-}
-
-.chatnav_hub_danger i {
-    color: var(--fullred, #e05555);
 }
 
 /* ---------- 골라서 숨기기·삭제 ---------- */
@@ -453,3 +597,4 @@ dialog:has(.chatnav_search, .chatnav_hide, .chatnav_hub, .chatnav_popup) .popup-
     flex-wrap: wrap;
     row-gap: 6px;
 }
+
