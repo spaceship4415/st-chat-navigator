@@ -81,16 +81,15 @@
     padding: 0 2px;
 }
 
+/* 설정창은 다른 확장과 같은 밀도로(ST 기본 줄·입력칸 크기). 줄 전체를 눌러도 체크된다 */
 .chatnav_row {
     flex-wrap: wrap;
     align-items: center;
     gap: 6px;
-    min-height: 44px;
 }
 
 .chatnav_row input[type="number"] {
     width: 7em;
-    min-height: 44px;
     margin: 0;
     font-size: 16px; /* iOS 확대 방지 */
 }
