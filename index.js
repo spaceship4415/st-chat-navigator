@@ -1,4 +1,4 @@
-// 채팅 내비게이터: 마법봉 메뉴 하나로 현재 채팅 검색, 번호로 이동, 책갈피, 범위 숨기기·삭제, 맨 위/아래.
+// 채팅 내비게이터: 마법봉 메뉴 하나로 현재 채팅 검색, 번호로 이동, 책갈피, 범위 숨기기·삭제, 골라서 숨기기·삭제, 맨 위/아래.
 // 덤으로 N턴마다 / N토큰마다 알림을 띄운다.
 
 const MODULE = 'chat-navigator';
@@ -394,12 +394,16 @@ function addBookmarkButtons() {
         toastr.info(on ? `#${index} 책갈피에 추가했습니다.` : `#${index} 책갈피를 뺐습니다.`, '', { timeOut: 1500 });
     });
 
+
     // 채팅 전환·이전 메시지 불러오기 등으로 메시지가 다시 그려지면 표시를 맞춘다.
     // requestAnimationFrame은 백그라운드 탭에서 멈추므로 타이머를 쓴다.
     let timer = 0;
     new MutationObserver(() => {
         clearTimeout(timer);
-        timer = setTimeout(paintBookmarks, 50);
+        timer = setTimeout(() => {
+            paintBookmarks();
+            paintSelection();
+        }, 50);
     }).observe(document.getElementById('chat'), { childList: true });
     paintBookmarks();
 }
@@ -602,10 +606,263 @@ async function openDeletePopup() {
     }
 }
 
+// ---------- 골라서 숨기기·삭제 (선택 모드) ----------
+// 메시지를 탭해서 고른다. 고른 건 번호가 아니라 메시지 객체로 기억해서,
+// 중간에 메시지가 지워지거나 다시 그려져도 실행 직전에 번호를 다시 계산한다.
+
+const selection = {
+    active: false,
+    picked: new Set(),
+    rangeMode: false,
+    anchor: null,
+    bar: null,
+};
+
+function isGeneratingNow() {
+    return $('#mes_stop').is(':visible');
+}
+
+/** 고른 메시지의 현재 번호(오름차순) */
+function pickedIndices() {
+    const indices = [];
+    ctx().chat.forEach((message, index) => {
+        if (selection.picked.has(message)) indices.push(index);
+    });
+    return indices;
+}
+
+/** [3,4,5,9] → [{from:3,to:5},{from:9,to:9}] */
+function toRuns(indices) {
+    const runs = [];
+    for (const index of indices) {
+        const lastRun = runs[runs.length - 1];
+        if (lastRun && lastRun.to === index - 1) lastRun.to = index;
+        else runs.push({ from: index, to: index });
+    }
+    return runs;
+}
+
+function paintSelection() {
+    if (!selection.active) return;
+    const chat = ctx().chat;
+    for (const element of document.querySelectorAll('#chat .mes')) {
+        const message = chat[Number(element.getAttribute('mesid'))];
+        element.classList.toggle('chatnav_picked', selection.picked.has(message));
+        element.classList.toggle('chatnav_anchor', !!message && message === selection.anchor);
+    }
+}
+
+function updateSelectionBar() {
+    const bar = selection.bar;
+    if (!bar) return;
+    const count = pickedIndices().length;
+    bar.querySelector('.chatnav_sel_count').textContent = `${count.toLocaleString()}개 선택`;
+    bar.querySelector('.chatnav_sel_hint').textContent = selection.rangeMode
+        ? (selection.anchor ? '범위: 끝 메시지를 탭하세요' : '범위: 시작 메시지를 탭하세요')
+        : '메시지를 탭해서 고르세요';
+    const rangeButton = bar.querySelector('[data-act="range"]');
+    rangeButton.classList.toggle('chatnav_on', selection.rangeMode);
+    rangeButton.setAttribute('aria-pressed', String(selection.rangeMode));
+    for (const button of bar.querySelectorAll('[data-needs-pick]')) {
+        button.disabled = count === 0;
+    }
+    paintSelection();
+}
+
+function onSelectClick(event) {
+    if (!selection.active) return;
+    const element = event.target.closest?.('#chat .mes');
+    if (!element) return; // '이전 메시지 더 보기' 같은 건 그대로 둔다
+
+    // 편집·스와이프·링크·다른 확장의 클릭이 같이 실행되지 않게 여기서 막는다
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+
+    const index = Number(element.getAttribute('mesid'));
+    const chat = ctx().chat;
+    const message = chat[index];
+    if (!message) return;
+
+    if (selection.rangeMode) {
+        if (!selection.anchor || !chat.includes(selection.anchor)) {
+            selection.anchor = message;
+        } else {
+            const anchorIndex = chat.indexOf(selection.anchor);
+            const [from, to] = anchorIndex < index ? [anchorIndex, index] : [index, anchorIndex];
+            for (let i = from; i <= to; i++) selection.picked.add(chat[i]);
+            selection.anchor = null;
+            selection.rangeMode = false;
+        }
+    } else if (selection.picked.has(message)) {
+        selection.picked.delete(message);
+    } else {
+        selection.picked.add(message);
+    }
+    updateSelectionBar();
+}
+
+function onSelectKey(event) {
+    if (selection.active && event.key === 'Escape' && !document.querySelector('dialog[open]')) {
+        exitSelectMode();
+    }
+}
+
+function enterSelectMode() {
+    if (!hasChat()) return;
+    if (selection.active) return;
+    if (isGeneratingNow()) {
+        toastr.warning('답변을 생성하는 중에는 고를 수 없습니다.');
+        return;
+    }
+    if ($('#dialogue_del_mes').is(':visible')) {
+        toastr.warning('ST 삭제 모드를 먼저 끝내 주세요.');
+        return;
+    }
+    if (document.getElementById('curEditTextarea')) {
+        toastr.warning('편집 중인 메시지를 먼저 끝내 주세요.');
+        return;
+    }
+
+    selection.active = true;
+    selection.picked = new Set();
+    selection.rangeMode = false;
+    selection.anchor = null;
+
+    const bar = document.createElement('div');
+    bar.id = 'chatnav_select_bar';
+    bar.innerHTML = `
+        <div class="chatnav_sel_row">
+            <div class="chatnav_sel_info">
+                <b class="chatnav_sel_count"></b>
+                <span class="chatnav_sel_hint"></span>
+            </div>
+            <button type="button" class="menu_button" data-act="range" aria-pressed="false"><i class="fa-solid fa-arrows-up-down"></i>범위</button>
+            <button type="button" class="menu_button" data-act="clear" data-needs-pick>해제</button>
+        </div>
+        <div class="chatnav_sel_row">
+            <button type="button" class="menu_button" data-act="hide" data-needs-pick><i class="fa-solid fa-eye-slash"></i>숨기기</button>
+            <button type="button" class="menu_button" data-act="unhide" data-needs-pick><i class="fa-solid fa-eye"></i>되돌리기</button>
+            <button type="button" class="menu_button chatnav_danger" data-act="delete" data-needs-pick><i class="fa-solid fa-trash-can"></i>삭제</button>
+            <button type="button" class="menu_button" data-act="done">완료</button>
+        </div>
+    `;
+    bar.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-act]');
+        if (!button || button.disabled) return;
+        const act = button.dataset.act;
+        if (act === 'range') {
+            selection.rangeMode = !selection.rangeMode;
+            selection.anchor = null;
+            updateSelectionBar();
+        } else if (act === 'clear') {
+            selection.picked.clear();
+            selection.anchor = null;
+            updateSelectionBar();
+        } else if (act === 'hide' || act === 'unhide') {
+            applyHide(act === 'unhide');
+        } else if (act === 'delete') {
+            applyDelete();
+        } else if (act === 'done') {
+            exitSelectMode();
+        }
+    });
+
+    // 입력창 자리에 막대를 넣는다(입력창은 선택 모드 동안 가린다)
+    const form = document.getElementById('form_sheld');
+    form.before(bar);
+    form.classList.add('chatnav_hidden');
+    selection.bar = bar;
+
+    document.body.classList.add('chatnav_selecting');
+    document.getElementById('chat').addEventListener('click', onSelectClick, true);
+    document.addEventListener('keydown', onSelectKey);
+    updateSelectionBar();
+}
+
+function exitSelectMode() {
+    if (!selection.active) return;
+    selection.active = false;
+    selection.picked.clear();
+    selection.anchor = null;
+    selection.rangeMode = false;
+    selection.bar?.remove();
+    selection.bar = null;
+    document.getElementById('form_sheld')?.classList.remove('chatnav_hidden');
+    document.body.classList.remove('chatnav_selecting');
+    document.getElementById('chat').removeEventListener('click', onSelectClick, true);
+    document.removeEventListener('keydown', onSelectKey);
+    for (const element of document.querySelectorAll('#chat .mes.chatnav_picked, #chat .mes.chatnav_anchor')) {
+        element.classList.remove('chatnav_picked', 'chatnav_anchor');
+    }
+}
+
+let applying = false;
+
+async function applyHide(unhide) {
+    if (applying) return;
+    const indices = pickedIndices();
+    if (!indices.length) return;
+    applying = true;
+    try {
+        for (const run of toRuns(indices)) {
+            await ctx().executeSlashCommandsWithOptions(`/${unhide ? 'unhide' : 'hide'} ${run.from}-${run.to}`);
+        }
+        toastr.success(`메시지 ${indices.length.toLocaleString()}개를 ${unhide ? '되돌렸습니다' : '숨겼습니다'}.`);
+        selection.picked.clear();
+        updateSelectionBar();
+    } finally {
+        applying = false;
+    }
+}
+
+async function applyDelete() {
+    if (applying) return;
+    const indices = pickedIndices();
+    if (!indices.length) return;
+    const { chat, callGenericPopup, POPUP_TYPE, POPUP_RESULT } = ctx();
+
+    const runs = toRuns(indices);
+    const marks = indices.filter(i => isBookmarked(chat[i])).length;
+    const preview = runs.slice(0, 5).map(r => (r.from === r.to ? `#${r.from}` : `#${r.from}~#${r.to}`)).join(', ')
+        + (runs.length > 5 ? ` 외 ${runs.length - 5}곳` : '');
+    const lines = [
+        `고른 메시지 <b>${indices.length.toLocaleString()}개</b>를 삭제합니다.`,
+        preview,
+        marks ? `책갈피 ${marks}개도 함께 사라집니다.` : '',
+        indices.length === chat.length ? '<b>채팅의 모든 메시지</b>입니다.' : '',
+        '되돌릴 수 없습니다.',
+    ].filter(Boolean);
+    const confirmed = await callGenericPopup(`<span class="chatnav_popup">${lines.join('<br>')}</span>`, POPUP_TYPE.CONFIRM, '', {
+        okButton: '삭제',
+        cancelButton: '취소',
+    });
+    if (confirmed !== POPUP_RESULT.AFFIRMATIVE) return;
+
+    applying = true;
+    const progress = indices.length > 20
+        ? toastr.info(`메시지 ${indices.length.toLocaleString()}개를 삭제하는 중…`, '', { timeOut: 0, extendedTimeOut: 0 })
+        : null;
+    try {
+        // 확인 창을 띄운 사이 채팅이 바뀌었을 수 있으니 번호를 다시 계산하고,
+        // 뒤 구간부터 지워서 앞 번호가 밀리지 않게 한다
+        for (const run of toRuns(pickedIndices()).reverse()) {
+            await ctx().executeSlashCommandsWithOptions(`/cut ${run.from}-${run.to}`);
+        }
+        toastr.success(`메시지 ${indices.length.toLocaleString()}개를 삭제했습니다.`);
+        selection.picked.clear();
+        if (selection.active) updateSelectionBar();
+    } finally {
+        if (progress) toastr.clear(progress);
+        applying = false;
+    }
+}
+
 // ---------- 메뉴판 ----------
 
 async function openHub() {
     if (!hasChat()) return;
+    exitSelectMode();
     const { Popup, POPUP_TYPE, chat } = ctx();
 
     const items = [
@@ -614,6 +871,7 @@ async function openHub() {
         { icon: 'fa-star', label: `책갈피 (${bookmarkedIndices().length})`, run: openBookmarksPopup },
         { icon: 'fa-eye-slash', label: '범위 숨기기', run: openHidePopup },
         { icon: 'fa-trash-can', label: '범위 삭제', run: openDeletePopup, danger: true },
+        { icon: 'fa-list-check', label: '골라서 숨기기·삭제', run: enterSelectMode, wide: true },
         { icon: 'fa-angles-up', label: '맨 위로', run: goTop },
         { icon: 'fa-angles-down', label: '맨 아래로', run: goBottom },
     ];
@@ -728,8 +986,15 @@ jQuery(() => {
 
     const { eventSource, eventTypes } = ctx();
     eventSource.on(eventTypes.CHAT_CHANGED, () => {
+        exitSelectMode();
         tokenCache.clear();
         checkAlerts();
+    });
+    // 답변 생성이 시작되면 끝낸다. 메시지 삭제 뒤 ST가 돌리는 dry run이나
+    // 백그라운드(quiet) 생성은 채팅을 바꾸지 않으니 무시한다.
+    eventSource.on(eventTypes.GENERATION_STARTED, (type, _options, dryRun) => {
+        if (dryRun || type === 'quiet') return;
+        exitSelectMode();
     });
     eventSource.on(eventTypes.MESSAGE_RECEIVED, () => checkAlerts());
     eventSource.on(eventTypes.MESSAGE_SENT, () => checkAlerts({ turns: false }));

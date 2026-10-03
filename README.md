@@ -18,6 +18,8 @@ and hide or delete a range of messages — all with buttons sized for a phone.
 - **Hide a range** — keep messages on screen but leave them out of what the AI sees, to save tokens. Undo the same way.
   The range starts out leaving the latest 20 messages untouched.
 - **Delete a range** — starts empty and asks twice, saying how many messages and bookmarks will go.
+- **Pick messages to hide or delete** — tap messages to tick them, or switch on *Range* and tap the first and the last.
+  Scattered picks like `#3, #4, #5, #9` are handled in one go.
 - **Top / bottom** — one tap to either end of the chat.
 - **A clear "hidden" badge** next to the name of every hidden message, beside SillyTavern's own small ghost icon.
 - **Turn and token alerts** — optional: a notice every N AI replies, or every time the chat passes another N tokens.
@@ -40,9 +42,14 @@ Wand menu → **Chat Navigator**.
 | Bookmarks (N) | List bookmarked messages; tap to jump, ✕ to remove |
 | Hide range | Leave messages `#from ~ #to` out of the prompt, or bring them back |
 | Delete range | Delete messages `#from ~ #to` — this cannot be undone |
+| Pick to hide/delete | Tap messages to select them, then hide, unhide or delete the selection |
 | Top / Bottom | Scroll to the first or the last message |
 
 Add a bookmark from the message itself: tap `⋯` on a message, then ☆. Tap ★ again to remove it.
+
+In pick mode the message box is replaced by a bar with the count and the actions.
+Tapping a message only ticks it — editing, swiping and links are paused until you press **Done**.
+Pick mode ends by itself when a reply starts generating or you switch chats.
 
 ## Settings
 
