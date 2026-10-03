@@ -88,13 +88,6 @@
     min-height: 44px;
 }
 
-.chatnav_row input[type="checkbox"] {
-    width: 22px;
-    height: 22px;
-    margin: 11px;
-    flex-shrink: 0;
-}
-
 .chatnav_row input[type="number"] {
     width: 7em;
     min-height: 44px;
