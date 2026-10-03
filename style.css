@@ -724,3 +724,26 @@ dialog:has(.chatnav_search, .chatnav_hide, .chatnav_hub, .chatnav_popup) .popup-
     background-color: var(--white20a);
 }
 
+/* ---------- 현재 위치 표시 ---------- */
+
+#chatnav_position {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 31;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 0.85em;
+    font-variant-numeric: tabular-nums;
+    color: var(--SmartThemeBodyColor);
+    background-color: var(--SmartThemeBlurTintColor);
+    border: 1px solid var(--SmartThemeBorderColor);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+#chatnav_position.chatnav_shown {
+    opacity: 0.95;
+}

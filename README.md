@@ -24,6 +24,7 @@ and hide or delete a range of messages — all with buttons sized for a phone.
   Scattered picks like `#3, #4, #5, #9` are handled in one go.
 - **Top / bottom** — one tap to either end of the chat, from the panel or, if you switch them on, as floating buttons above the message box.
 - **Pick up where you left off** — optional: reopen a chat and a *Continue reading #120* chip takes you back to where you were. Kept per device in the browser.
+- **Where am I** — optional: while you scroll, `#120 / #450` shows briefly at the top.
 - **Read replies from the start** — optional: when a long reply arrives, stop at its first line instead of following it to the bottom.
 - **A clear "hidden" badge** next to the name of every hidden message, beside SillyTavern's own small ghost icon.
 - **Turn and token alerts** — optional: a notice every N AI replies, or every time the chat passes another N tokens.
@@ -64,6 +65,7 @@ Extensions → **Chat Navigator**.
 | Setting | What it does |
 | --- | --- |
 | Pick up where you left off | Remembers the message at the top of the screen as you read. Reopening the chat shows a chip that jumps back there; it disappears after 15 seconds. Nothing is kept when you leave at the bottom. Stored in this browser only, so a phone and a PC each keep their own place |
+| Show position while scrolling | Shows `#current / #last` at the top of the chat while you scroll |
 | Stop at the start of a new reply | While a reply streams in, SillyTavern follows it to the bottom. With this on, once the reply grows past the screen its first line is held at the top and SillyTavern stops following; a reply that arrives all at once is scrolled back to its first line. Short replies and *Continue* are left alone, and scrolling down yourself is never undone |
 | Float a scroll-to-bottom button | Shows ⇊ at the bottom centre of the chat whenever you are not at the bottom |
 | Float a scroll-to-top button | Shows ⇈ next to it whenever you are not at the top. Both are off by default; turn on either or both |

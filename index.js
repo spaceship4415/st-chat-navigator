@@ -1,4 +1,4 @@
-// 채팅 내비게이터: 마법봉 메뉴 하나로 현재 채팅 검색, 번호로 이동, 책갈피, 범위 숨기기·삭제, 골라서 숨기기·삭제, 맨 위/아래(떠 있는 버튼도), 답변 처음부터 읽기, 읽던 위치 이어 보기.
+// 채팅 내비게이터: 마법봉 메뉴 하나로 현재 채팅 검색, 번호로 이동, 책갈피, 범위 숨기기·삭제, 골라서 숨기기·삭제, 맨 위/아래(떠 있는 버튼도), 답변 처음부터 읽기, 읽던 위치 이어 보기, 현재 위치 표시.
 // 덤으로 N턴마다 / N토큰마다 알림을 띄운다.
 
 const MODULE = 'chat-navigator';
@@ -21,6 +21,7 @@ function getSettings() {
     s.floatBottom ??= false;
     s.readFromTop ??= false;
     s.resumePos ??= false;
+    s.showPos ??= false;
     return s;
 }
 
@@ -1175,7 +1176,7 @@ function onReadMessageRendered(messageId) {
     }, 150);
 }
 
-// ---------- 읽던 위치 이어 보기 (설정에서 켬) ----------
+// ---------- 읽던 위치 이어 보기 · 현재 위치 표시 (설정에서 켬) ----------
 // 읽던 위치는 이 기기 브라우저(localStorage)에만 둔다. 채팅 파일에 두면 스크롤할 때마다
 // 채팅 전체를 다시 저장하게 되고, 폰과 PC에서 읽던 곳이 서로 다른 게 자연스럽기도 하다.
 
@@ -1311,9 +1312,32 @@ function onPositionChatChanged() {
     }, 400);
 }
 
+let positionBadge = null;
+let positionBadgeTimer = 0;
+
+function showPositionBadge() {
+    const chatEl = document.getElementById('chat');
+    const sheld = document.getElementById('sheld');
+    const index = topVisibleIndex();
+    const last = ctx().chat.length - 1;
+    if (index < 0 || last < 1) return;
+    if (!positionBadge) {
+        positionBadge = document.createElement('div');
+        positionBadge.id = 'chatnav_position';
+        positionBadge.setAttribute('aria-hidden', 'true');
+        sheld.append(positionBadge);
+    }
+    positionBadge.style.top = `${chatEl.getBoundingClientRect().top - sheld.getBoundingClientRect().top + 8}px`;
+    positionBadge.textContent = `#${index} / #${last}`;
+    positionBadge.classList.add('chatnav_shown');
+    clearTimeout(positionBadgeTimer);
+    positionBadgeTimer = setTimeout(() => positionBadge?.classList.remove('chatnav_shown'), 1200);
+}
+
 function onPositionScroll() {
-    // 채팅을 여는 동안 ST가 내리는 스크롤은 기억하지 않는다
+    // 채팅을 여는 동안 ST가 내리는 스크롤에는 위치 표시도 띄우지 않는다
     if (Date.now() < positionMuteUntil) return;
+    if (getSettings().showPos) showPositionBadge();
     if (getSettings().resumePos) {
         clearTimeout(positionSaveTimer);
         positionSaveTimer = setTimeout(savePositionNow, 500);
@@ -1360,6 +1384,10 @@ function addSettingsPanel() {
                     <label class="checkbox_label chatnav_row">
                         <input type="checkbox" id="chatnav_resume_pos">
                         <span>읽던 위치 이어 보기</span>
+                    </label>
+                    <label class="checkbox_label chatnav_row">
+                        <input type="checkbox" id="chatnav_show_pos">
+                        <span>스크롤할 때 현재 위치 표시</span>
                     </label>
                     <label class="checkbox_label chatnav_row">
                         <input type="checkbox" id="chatnav_read_top">
@@ -1428,6 +1456,7 @@ function addSettingsPanel() {
         });
     };
     bindPlain('#chatnav_read_top', 'readFromTop');
+    bindPlain('#chatnav_show_pos', 'showPos');
     bindPlain('#chatnav_resume_pos', 'resumePos', (on) => {
         if (on) savePositionNow();
         else hideResumeChip();
