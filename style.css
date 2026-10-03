@@ -1,0 +1,271 @@
+.chatnav_search {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    text-align: left;
+}
+
+.chatnav_search h3 {
+    margin: 0;
+}
+
+.chatnav_input {
+    min-height: 44px;
+    margin: 0;
+    font-size: 16px; /* iOS 확대 방지 */
+}
+
+.chatnav_status {
+    font-size: 0.9em;
+    opacity: 0.7;
+    min-height: 1.2em;
+}
+
+.chatnav_results {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    /* 검색창은 그대로 두고 결과만 스크롤 */
+    max-height: min(60vh, 640px);
+    max-height: min(60dvh, 640px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.chatnav_results:empty {
+    display: none;
+}
+
+.chatnav_more {
+    min-height: 44px;
+    margin: 4px 0 0;
+    justify-content: center;
+}
+
+.chatnav_item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 10px;
+    text-align: left;
+    color: var(--SmartThemeBodyColor);
+    background-color: var(--black30a);
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 8px;
+    cursor: pointer;
+    font: inherit;
+}
+
+.chatnav_item:hover,
+.chatnav_item:focus-visible {
+    background-color: var(--white20a);
+}
+
+.chatnav_meta {
+    font-size: 0.85em;
+    opacity: 0.8;
+}
+
+.chatnav_snippet {
+    overflow-wrap: anywhere;
+    line-height: 1.4;
+}
+
+.chatnav_snippet mark {
+    color: inherit;
+    background-color: var(--SmartThemeQuoteColor);
+    border-radius: 3px;
+    padding: 0 2px;
+}
+
+.chatnav_row {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+}
+
+.chatnav_row input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+    margin: 11px;
+    flex-shrink: 0;
+}
+
+.chatnav_row input[type="number"] {
+    width: 7em;
+    min-height: 44px;
+    margin: 0;
+    font-size: 16px; /* iOS 확대 방지 */
+}
+
+/* ---------- 메뉴판 ---------- */
+
+.chatnav_hub h3,
+.chatnav_hide h3 {
+    margin: 0 0 4px;
+}
+
+.chatnav_hint {
+    font-size: 0.9em;
+    opacity: 0.7;
+    margin: 0 0 10px;
+}
+
+.chatnav_hub_grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.chatnav_hub_button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 72px;
+    padding: 10px 6px;
+    color: var(--SmartThemeBodyColor);
+    background-color: var(--black30a);
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 10px;
+    cursor: pointer;
+    font: inherit;
+}
+
+.chatnav_hub_button i {
+    font-size: 1.3em;
+}
+
+.chatnav_hub_button:hover,
+.chatnav_hub_button:focus-visible {
+    background-color: var(--white20a);
+}
+
+/* ---------- 책갈피 ---------- */
+
+.chatnav_bookmark_row {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+}
+
+.chatnav_bookmark_row .chatnav_item {
+    flex: 1;
+    min-width: 0;
+}
+
+.chatnav_remove {
+    flex-shrink: 0;
+    width: 44px;
+    min-height: 44px;
+    color: var(--SmartThemeBodyColor);
+    background-color: var(--black30a);
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.chatnav_remove:hover,
+.chatnav_remove:focus-visible {
+    background-color: var(--crimson70a);
+}
+
+.chatnav_empty {
+    padding: 16px 4px;
+    text-align: center;
+    opacity: 0.8;
+    line-height: 1.6;
+}
+
+/* 책갈피한 메시지: 이름 옆에 별 */
+.mes.chatnav_bookmarked .name_text::after {
+    content: ' ★';
+    color: var(--SmartThemeQuoteColor);
+}
+
+/* ---------- 범위 숨기기 ---------- */
+
+.chatnav_hide {
+    text-align: left;
+}
+
+.chatnav_range {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.chatnav_range label {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.9em;
+}
+
+.chatnav_range input {
+    min-height: 44px;
+    margin: 0;
+    font-size: 16px; /* iOS 확대 방지 */
+}
+
+.chatnav_range > span {
+    padding-top: 1.4em;
+}
+
+.chatnav_hide .chatnav_status {
+    margin-top: 8px;
+}
+
+/* 이 확장이 띄우는 팝업의 아래 버튼도 44px */
+dialog:has(.chatnav_search, .chatnav_hide, .chatnav_hub, .chatnav_popup) .popup-controls .menu_button {
+    min-height: 44px;
+    min-width: 64px;
+    padding: 0 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+dialog:has(.chatnav_popup) .popup-input {
+    min-height: 44px;
+    font-size: 16px;
+}
+
+/* 숨긴 메시지: ST의 작은 유령 아이콘 옆에 '숨김' 배지 */
+.mes[is_system="true"]:not([ch_name="SillyTavern System"]) .mes_ghost {
+    align-items: center;
+    gap: 4px;
+    opacity: 0.85;
+}
+
+.mes[is_system="true"]:not([ch_name="SillyTavern System"]) .mes_ghost::after {
+    content: '숨김';
+    font-family: var(--mainFontFamily, sans-serif);
+    font-weight: normal;
+    font-size: 0.75em;
+    line-height: 1;
+    padding: 2px 6px;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.chatnav_hub_wide {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    min-height: 56px;
+}
+
+.chatnav_hub_danger {
+    border-color: var(--crimson70a);
+}
+
+.chatnav_hub_danger i {
+    color: var(--fullred, #e05555);
+}

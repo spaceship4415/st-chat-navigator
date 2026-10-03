@@ -1,0 +1,11 @@
+{
+    "display_name": "Chat Navigator",
+    "loading_order": 20,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "spaceship4415",
+    "version": "1.0.0",
+    "auto_update": false
+}

@@ -1,0 +1,68 @@
+# Chat Navigator
+
+[한국어 가이드](README.ko.md)
+
+Find your way around a long SillyTavern chat from one entry in the wand menu.
+Search the open chat, jump to a message by number, bookmark the moments you want to come back to,
+and hide or delete a range of messages — all with buttons sized for a phone.
+
+## Features
+
+- **One menu** — the wand menu gets a single **Chat Navigator** entry that opens a panel of large buttons, so it does not crowd the menu.
+- **Search this chat** — type words separated by spaces; a message must contain all of them, case does not matter.
+  Results come newest first, 100 at a time with a **Show more** button, each with its `#number`, sender and the matched words highlighted.
+  Tap a result to jump there. The search box stays put while the list scrolls.
+- **Jump to a number** — the same `#number` SillyTavern shows on each message. Older messages are loaded for you.
+- **Bookmarks** — tap ☆ in a message's `⋯` menu. Bookmarked messages get a ★ next to the name, and the bookmark list jumps to them.
+  The mark is stored on the message itself, so it follows the message when earlier ones are deleted.
+- **Hide a range** — keep messages on screen but leave them out of what the AI sees, to save tokens. Undo the same way.
+  The range starts out leaving the latest 20 messages untouched.
+- **Delete a range** — starts empty and asks twice, saying how many messages and bookmarks will go.
+- **Top / bottom** — one tap to either end of the chat.
+- **A clear "hidden" badge** next to the name of every hidden message, beside SillyTavern's own small ghost icon.
+- **Turn and token alerts** — optional: a notice every N AI replies, or every time the chat passes another N tokens.
+- **Careful with big chats** — jumping or going to the top asks first when it would load more than 300 messages, since drawing that many at once can freeze a phone for a moment.
+
+## Install
+
+1. Open **Extensions** (the puzzle icon) in SillyTavern.
+2. Click **Install Extension**.
+3. Paste this repository's URL and press **Install**.
+
+## Use
+
+Wand menu → **Chat Navigator**.
+
+| Button | What it does |
+| --- | --- |
+| Search | Search the open chat and jump to a result |
+| Jump to number | Enter a message number (`12` or `#12`) |
+| Bookmarks (N) | List bookmarked messages; tap to jump, ✕ to remove |
+| Hide range | Leave messages `#from ~ #to` out of the prompt, or bring them back |
+| Delete range | Delete messages `#from ~ #to` — this cannot be undone |
+| Top / Bottom | Scroll to the first or the last message |
+
+Add a bookmark from the message itself: tap `⋯` on a message, then ☆. Tap ★ again to remove it.
+
+## Settings
+
+Extensions → **Chat Navigator**.
+
+| Setting | What it does |
+| --- | --- |
+| Turn alert, every N turns | Shows a notice each time the number of AI replies reaches another multiple of N |
+| Token alert, every N tokens | Shows a notice each time the whole chat passes another multiple of N tokens |
+
+Tokens are counted with the current tokenizer, leaving out hidden messages.
+Each alert fires once per step and remembers it per chat, so reloading does not repeat it.
+Turning an alert on, or changing N, starts counting from where the chat is now.
+
+## Notes
+
+- The interface text is in Korean for now; the button and setting names above are translations.
+- Jumping and deleting use SillyTavern's own `/chat-jump` and `/cut`. Deleting hundreds of messages removes them one at a time and can take a few seconds on a phone.
+- Deleting a message that is part of an AI tool call also deletes the linked tool-call messages, as `/cut` does.
+
+## License
+
+MIT
