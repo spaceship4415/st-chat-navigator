@@ -339,6 +339,13 @@ dialog:has(.chatnav_hub) .popup-controls {
     color: var(--SmartThemeQuoteColor);
 }
 
+/* 메모가 있으면 별 옆에 짧게 */
+.mes.chatnav_bookmarked .name_text[data-chatnav-note]::after {
+    content: ' ★ ' attr(data-chatnav-note);
+    font-size: 0.85em;
+    font-weight: normal;
+}
+
 /* ---------- 범위 숨기기 ---------- */
 
 .chatnav_hide {
@@ -639,3 +646,32 @@ dialog:has(.chatnav_search, .chatnav_hide, .chatnav_hub, .chatnav_popup) .popup-
 #chatnav_floating button:focus-visible {
     background-color: var(--white20a);
 }
+
+/* ---------- 책갈피 메모 ---------- */
+
+.chatnav_note {
+    font-weight: 600;
+    color: var(--SmartThemeQuoteColor);
+    overflow-wrap: anywhere;
+}
+
+.chatnav_note i {
+    font-size: 0.85em;
+}
+
+.chatnav_edit {
+    flex-shrink: 0;
+    width: 44px;
+    min-height: 44px;
+    color: var(--SmartThemeBodyColor);
+    background-color: var(--black30a);
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.chatnav_edit:hover,
+.chatnav_edit:focus-visible {
+    background-color: var(--white20a);
+}
+

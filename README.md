@@ -15,6 +15,7 @@ and hide or delete a range of messages — all with buttons sized for a phone.
 - **Jump to a number** — the same `#number` SillyTavern shows on each message. Older messages are loaded for you.
 - **Bookmarks** — tap ☆ in a message's `⋯` menu. Bookmarked messages get a ★ next to the name, and the bookmark list jumps to them.
   The mark is stored on the message itself, so it follows the message when earlier ones are deleted.
+  Give a bookmark a short note such as a scene name; it shows next to the name in the chat, so the list reads like a table of contents.
 - **Hide a range** — keep messages on screen but leave them out of what the AI sees, to save tokens. Undo the same way.
   The range starts out leaving the latest 20 messages untouched.
 - **Delete a range** — starts empty and asks twice, saying how many messages will go.
@@ -41,7 +42,7 @@ Wand menu → **Chat Navigator**.
 | --- | --- |
 | Search | Search the open chat and jump to a result |
 | Jump to number | Enter a message number (`12` or `#12`) |
-| Bookmarks (N) | List bookmarked messages; tap to jump, ✕ to remove |
+| Bookmarks (N) | List bookmarked messages; tap to jump, ✎ to add a note, ✕ to remove |
 | Hide range | Leave messages `#from ~ #to` out of the prompt, or bring them back |
 | Delete range | Delete messages `#from ~ #to` — this cannot be undone |
 | Pick to hide/delete | Tap messages to select them, then hide, unhide or delete the selection |

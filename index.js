@@ -344,11 +344,17 @@ function goBottom() {
 // 번호가 아니라 메시지 자체(extra)에 표시해 둔다. 앞 메시지를 지워 번호가 바뀌어도 따라간다.
 
 const BOOKMARK_KEY = 'chatnav_bookmark';
+const NOTE_KEY = 'chatnav_bookmark_note';
+const NOTE_MAX = 40;
 const BOOKMARK_BUTTON = '<div title="책갈피" class="mes_button chatnav_bookmark_button fa-regular fa-star"></div>';
 const DELETE_BUTTON = '<div title="이 메시지 삭제" class="mes_button chatnav_delete_button fa-solid fa-trash-can"></div>';
 
 function isBookmarked(message) {
     return !!message?.extra?.[BOOKMARK_KEY];
+}
+
+function bookmarkNote(message) {
+    return String(message?.extra?.[NOTE_KEY] ?? '');
 }
 
 function bookmarkedIndices() {
@@ -364,9 +370,28 @@ async function setBookmark(index, on) {
     if (!message) return;
     message.extra ??= {};
     if (on) message.extra[BOOKMARK_KEY] = true;
-    else delete message.extra[BOOKMARK_KEY];
+    else {
+        delete message.extra[BOOKMARK_KEY];
+        delete message.extra[NOTE_KEY];
+    }
     paintBookmarks();
     await ctx().saveChat();
+}
+
+/** 책갈피에 메모(장면 이름 등)를 단다. 빈 값이면 지운다 */
+async function setBookmarkNote(index, note) {
+    const message = ctx().chat[index];
+    if (!message || !isBookmarked(message)) return;
+    const text = String(note ?? '').replace(/\s+/g, ' ').trim().slice(0, NOTE_MAX);
+    if (text) message.extra[NOTE_KEY] = text;
+    else delete message.extra[NOTE_KEY];
+    paintBookmarks();
+    await ctx().saveChat();
+}
+
+/** 이름 옆에 붙일 짧은 메모 */
+function shortNote(note) {
+    return note.length > 16 ? note.slice(0, 16) + '…' : note;
 }
 
 /** 화면에 그려진 메시지에 책갈피 표시(이름 옆 별, 버튼 채움)를 맞춘다. */
@@ -375,6 +400,13 @@ function paintBookmarks() {
     for (const element of document.querySelectorAll('#chat .mes')) {
         const on = isBookmarked(chat[Number(element.getAttribute('mesid'))]);
         element.classList.toggle('chatnav_bookmarked', on);
+        // CSS attr()는 ::after 가 붙은 요소의 속성을 읽으므로 이름 요소에 단다
+        const note = on ? bookmarkNote(chat[Number(element.getAttribute('mesid'))]) : '';
+        const nameText = element.querySelector('.name_text');
+        if (nameText) {
+            if (note) nameText.dataset.chatnavNote = shortNote(note);
+            else delete nameText.dataset.chatnavNote;
+        }
         const button = element.querySelector('.chatnav_bookmark_button');
         if (button) {
             button.classList.toggle('fa-solid', on);
@@ -451,22 +483,35 @@ async function openBookmarksPopup() {
             list.innerHTML = `
                 <div class="chatnav_empty">
                     책갈피가 없습니다.<br>
-                    메시지의 <i class="fa-solid fa-ellipsis"></i> 메뉴에서 <i class="fa-regular fa-star"></i>를 누르면 추가됩니다.
+                    메시지의 <i class="fa-solid fa-ellipsis"></i> 메뉴에서 <i class="fa-regular fa-star"></i>를 누르면 추가되고,<br>
+                    여기서 <i class="fa-solid fa-pen"></i>로 장면 이름 같은 메모를 달 수 있습니다.
                 </div>`;
             return;
         }
         for (const index of indices) {
             const message = chat[index];
+            const note = bookmarkNote(message);
             const row = document.createElement('div');
             row.className = 'chatnav_bookmark_row';
             row.innerHTML = `
                 <button type="button" class="chatnav_item">
                     <span class="chatnav_meta"><b>#${index}</b> ${escapeHtml(message?.name)}</span>
+                    ${note ? `<span class="chatnav_note"><i class="fa-solid fa-star"></i> ${escapeHtml(note)}</span>` : ''}
                     <span class="chatnav_snippet">${plainSnippet(message?.mes)}</span>
                 </button>
+                <button type="button" class="chatnav_edit fa-solid fa-pen" title="메모" aria-label="메모 달기"></button>
                 <button type="button" class="chatnav_remove fa-solid fa-xmark" title="책갈피 빼기" aria-label="책갈피 빼기"></button>
             `;
             row.querySelector('.chatnav_item').addEventListener('click', () => pick(index));
+            row.querySelector('.chatnav_edit').addEventListener('click', async () => {
+                const { callGenericPopup, POPUP_TYPE } = ctx();
+                const value = await callGenericPopup(
+                    `<span class="chatnav_popup">#${index} 책갈피 메모<br><small>장면 이름처럼 짧게 (${NOTE_MAX}자까지). 비우면 지웁니다.</small></span>`,
+                    POPUP_TYPE.INPUT, note, { okButton: '저장', cancelButton: '취소' });
+                if (value === null || value === false) return;
+                await setBookmarkNote(index, value);
+                render();
+            });
             row.querySelector('.chatnav_remove').addEventListener('click', async () => {
                 await setBookmark(index, false);
                 render();
