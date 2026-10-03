@@ -1,4 +1,4 @@
-// 채팅 내비게이터: 마법봉 메뉴 하나로 현재 채팅 검색, 번호로 이동, 책갈피, 범위 숨기기·삭제, 골라서 숨기기·삭제, 맨 위/아래(떠 있는 버튼도).
+// 채팅 내비게이터: 마법봉 메뉴 하나로 현재 채팅 검색, 번호로 이동, 책갈피, 범위 숨기기·삭제, 골라서 숨기기·삭제, 맨 위/아래(떠 있는 버튼도), 답변 처음부터 읽기.
 // 덤으로 N턴마다 / N토큰마다 알림을 띄운다.
 
 const MODULE = 'chat-navigator';
@@ -19,6 +19,7 @@ function getSettings() {
     s.tokenEvery ??= 10000;
     s.floatTop ??= false;
     s.floatBottom ??= false;
+    s.readFromTop ??= false;
     return s;
 }
 
@@ -1068,6 +1069,66 @@ function setFloating(on) {
     }
 }
 
+// ---------- 답변이 오면 처음 부분에서 멈추기 (설정에서 켬) ----------
+// ST는 답변이 오면 맨 아래로 따라 내려가지만, 읽는 건 처음부터다.
+// 스트리밍: 답변 머리가 화면 위로 밀려나려는 순간 머리를 화면 맨 위에 고정한다.
+//   그러면 ST가 '사용자가 올렸다'로 보고 따라 내려가기를 멈춘다(scrollLock).
+// 한 번에 오는 답변: 다 그려지고 맨 아래로 내려간 뒤 답변 머리로 올린다.
+// 한 화면에 다 들어오는 짧은 답변이나 이어쓰기(continue)는 건드리지 않는다.
+
+const READ_MARGIN = 8;
+const reading = { active: false, streamed: false, pinnedAt: 0 };
+
+function messageTopOffset(element) {
+    const chatEl = document.getElementById('chat');
+    return element.getBoundingClientRect().top - chatEl.getBoundingClientRect().top;
+}
+
+function pinMessageTop(element) {
+    const chatEl = document.getElementById('chat');
+    chatEl.scrollTop += messageTopOffset(element) - READ_MARGIN;
+}
+
+function onReadGenerationStarted(type, _options, dryRun) {
+    if (dryRun || type === 'quiet' || type === 'impersonate') return;
+    reading.active = !!getSettings().readFromTop && type !== 'continue';
+    reading.streamed = false;
+    reading.pinnedAt = 0;
+}
+
+function onReadStreamToken() {
+    if (!reading.active) return;
+    reading.streamed = true;
+    const element = document.querySelector('#chat .mes.last_mes');
+    if (!element) return;
+
+    if (!reading.pinnedAt) {
+        if (messageTopOffset(element) < READ_MARGIN) {
+            pinMessageTop(element);
+            reading.pinnedAt = Date.now();
+        }
+        return;
+    }
+    // 고정 직후엔 ST가 미리 예약해 둔 '맨 아래로'가 한 번 더 올 수 있다.
+    // 잠깐 동안, 그것도 맨 아래로 끌려갔을 때만 다시 맞춘다(사용자가 내리는 건 막지 않게).
+    const chatEl = document.getElementById('chat');
+    const atBottom = chatEl.scrollHeight - chatEl.clientHeight - chatEl.scrollTop < 5;
+    if (Date.now() - reading.pinnedAt < 1500 && atBottom && messageTopOffset(element) < READ_MARGIN) {
+        pinMessageTop(element);
+    }
+}
+
+function onReadMessageRendered(messageId) {
+    if (!reading.active) return;
+    reading.active = false;
+    if (reading.streamed) return; // 스트리밍은 받는 동안 처리했다
+    // ST가 맨 아래로 내린 다음에 올린다
+    setTimeout(() => {
+        const element = document.querySelector(`#chat .mes[mesid="${messageId}"]`);
+        if (element && messageTopOffset(element) < READ_MARGIN) pinMessageTop(element);
+    }, 150);
+}
+
 // ---------- UI ----------
 
 function addWandButton() {
@@ -1097,6 +1158,10 @@ function addSettingsPanel() {
                     <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
                 </div>
                 <div class="inline-drawer-content">
+                    <label class="checkbox_label chatnav_row">
+                        <input type="checkbox" id="chatnav_read_top">
+                        <span>답변이 오면 처음 부분에서 멈추기</span>
+                    </label>
                     <label class="checkbox_label chatnav_row">
                         <input type="checkbox" id="chatnav_float_bottom">
                         <span>맨 아래로 버튼 띄우기</span>
@@ -1152,6 +1217,10 @@ function addSettingsPanel() {
             setFloating(s.floatTop || s.floatBottom);
         });
     };
+    $('#chatnav_read_top').prop('checked', s.readFromTop).on('change', function () {
+        s.readFromTop = $(this).prop('checked');
+        save();
+    });
     bindFloat('#chatnav_float_bottom', 'floatBottom');
     bindFloat('#chatnav_float_top', 'floatTop');
     bindCheck('#chatnav_turn_alert', 'turnAlert');
@@ -1175,6 +1244,9 @@ jQuery(() => {
     });
     // 답변 생성이 시작되면 끝낸다. 메시지 삭제 뒤 ST가 돌리는 dry run이나
     // 백그라운드(quiet) 생성은 채팅을 바꾸지 않으니 무시한다.
+    eventSource.on(eventTypes.GENERATION_STARTED, onReadGenerationStarted);
+    eventSource.on(eventTypes.STREAM_TOKEN_RECEIVED, onReadStreamToken);
+    eventSource.on(eventTypes.CHARACTER_MESSAGE_RENDERED, onReadMessageRendered);
     eventSource.on(eventTypes.GENERATION_STARTED, (type, _options, dryRun) => {
         if (dryRun || type === 'quiet') return;
         exitSelectMode();
