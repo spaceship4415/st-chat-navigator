@@ -495,14 +495,16 @@ async function openBookmarksPopup() {
             const note = bookmarkNote(message);
             const row = document.createElement('div');
             row.className = 'chatnav_bookmark_row';
+            // 아이콘은 <i>에 담는다. 글꼴을 <button>에 직접 걸면 테마가 button 글꼴을 덮어쓸 때 네모로 깨진다
+            // (ST도 아이콘 버튼을 div나 i로 만든다)
             row.innerHTML = `
                 <button type="button" class="chatnav_item">
                     <span class="chatnav_meta"><b>#${index}</b> ${escapeHtml(message?.name)}</span>
                     ${note ? `<span class="chatnav_note"><i class="fa-solid fa-star"></i> ${escapeHtml(note)}</span>` : ''}
                     <span class="chatnav_snippet">${plainSnippet(message?.mes)}</span>
                 </button>
-                <button type="button" class="chatnav_edit fa-solid fa-pen" title="메모" aria-label="메모 달기"></button>
-                <button type="button" class="chatnav_remove fa-solid fa-xmark" title="책갈피 빼기" aria-label="책갈피 빼기"></button>
+                <button type="button" class="chatnav_edit" title="메모" aria-label="메모 달기"><i class="fa-solid fa-pen"></i></button>
+                <button type="button" class="chatnav_remove" title="책갈피 빼기" aria-label="책갈피 빼기"><i class="fa-solid fa-xmark"></i></button>
             `;
             row.querySelector('.chatnav_item').addEventListener('click', () => pick(index));
             row.querySelector('.chatnav_edit').addEventListener('click', async () => {
@@ -1136,8 +1138,8 @@ async function openChatInfoPopup() {
             <div class="chatnav_info_label">채팅 로어북 <small>(이 채팅에서만)</small></div>
             <div class="chatnav_info_world_row">
                 <select class="text_pole chatnav_input chatnav_info_world_select"></select>
-                <button type="button" class="menu_button chatnav_info_icon_button chatnav_info_world_open fa-solid fa-pen" title="로어북 편집기에서 열기" aria-label="로어북 편집기에서 열기"></button>
-                <button type="button" class="menu_button chatnav_info_icon_button chatnav_info_world_new fa-solid fa-plus" title="새 로어북 만들어 연결" aria-label="새 로어북 만들어 연결"></button>
+                <button type="button" class="menu_button chatnav_info_icon_button chatnav_info_world_open" title="로어북 편집기에서 열기" aria-label="로어북 편집기에서 열기"><i class="fa-solid fa-pen"></i></button>
+                <button type="button" class="menu_button chatnav_info_icon_button chatnav_info_world_new" title="새 로어북 만들어 연결" aria-label="새 로어북 만들어 연결"><i class="fa-solid fa-plus"></i></button>
             </div>
             <div class="chatnav_status chatnav_info_world_status"></div>
             <div class="chatnav_info_label">지금 적용되는 로어북</div>
