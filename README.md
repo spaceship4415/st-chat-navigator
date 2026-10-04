@@ -16,6 +16,13 @@ and hide or delete a range of messages — all with buttons sized for a phone.
 - **Bookmarks** — tap ☆ in a message's `⋯` menu. Bookmarked messages get a ★ next to the name, and the bookmark list jumps to them.
   The mark is stored on the message itself, so it follows the message when earlier ones are deleted.
   Give a bookmark a short note such as a scene name; it shows next to the name in the chat, so the list reads like a table of contents.
+- **Chat info** — everything attached to the open chat on one screen, instead of scattered across SillyTavern's menus:
+  - a summary: file name, message count (and how many are hidden), an approximate token count, and the first and last message dates;
+  - the **persona** — switch it, or lock it to the chat (SillyTavern's *lock to chat*); switching while locked moves the lock along;
+  - the **Author's Note** — its text, position (before/after the scenario, or in-chat at a depth and role) and interval;
+  - **chat overrides** — whether this chat replaces the card's scenario, example messages or system prompt, with a preview; *Edit* opens SillyTavern's own override editor;
+  - **lorebooks** — change or unbind the chat lorebook (✎ opens it in the editor; ＋ creates a new one, binds it and opens the editor — it never overwrites an existing name), and see every lorebook in effect: chat, character (each member in a group), persona and global. Missing files are struck through.
+  The Author's Note and chat overrides start folded, with a light by the title: green when in use, amber when the note has text but its interval is 0, grey when empty.
 - **Hide a range** — keep messages on screen but leave them out of what the AI sees, to save tokens. Undo the same way.
   The range starts out leaving the latest 20 messages untouched.
 - **Delete a range** — starts empty and asks twice, saying how many messages will go.
@@ -45,6 +52,7 @@ Wand menu → **Chat Navigator**.
 | Search | Search the open chat and jump to a result |
 | Jump to number | Enter a message number (`12` or `#12`) |
 | Bookmarks (N) | List bookmarked messages; tap to jump, ✎ to add a note, ✕ to remove |
+| Chat info | Summary, persona, Author's Note, chat overrides and lorebooks of the open chat |
 | Hide range | Leave messages `#from ~ #to` out of the prompt, or bring them back |
 | Delete range | Delete messages `#from ~ #to` — this cannot be undone |
 | Pick to hide/delete | Tap messages to select them, then hide, unhide or delete the selection |
@@ -66,6 +74,33 @@ Bookmarks are not SillyTavern's own *Branch* or *Checkpoint*:
 In pick mode the message box is replaced by a bar with the count and the actions.
 Tapping a message only ticks it — editing, swiping and links are paused until you press **Done**.
 Pick mode ends by itself when a reply starts generating or you switch chats.
+
+## What are the Author's Note and chat overrides?
+
+Both are notes slipped to the AI behind the scenes, but they work differently.
+
+**Author's Note** — something you want the AI to keep in mind for this chat. It never shows on screen; it is only inserted into the prompt.
+Use it to pin down the current situation (`[Location: a train station on a rainy night. They have just had a fight]`),
+to steer the style (`[Short, dry sentences. Keep emotions understated]`), or when a long story makes the AI forget details.
+It applies to this chat only, without touching the character card — change it whenever the scene changes.
+
+| Setting | Meaning |
+| --- | --- |
+| Before / after scenario | Inserted near the top of the prompt, next to the character definition — reads like background |
+| In-chat at depth | Inserted between messages; depth 4 means above the latest 4 messages. **The closer to the latest messages, the more strongly the AI follows it** |
+| Role | Who the note appears to come from (system / user / AI). System is usually right |
+| Interval | 1 = every time, 3 = once every 3 messages, 0 = never |
+
+*In-chat, depth 2–4, interval 1* is a good default.
+
+**Chat overrides** — replace parts of the character card for this chat only; the card itself is untouched.
+Override the *scenario* (the card says "first meeting at school", this chat is "reunion ten years later"),
+the *example messages* (a different speaking style), or the *system prompt* (different base instructions).
+Handy for running several alternate-universe chats with one character without copying the card.
+
+In short: the Author's Note **adds** to the prompt and suits the ever-changing "current situation";
+overrides **replace** card content and suit the "world of this chat" that rarely changes.
+Both are easy to switch on and forget, which is why they get a light — if the AI keeps bringing up odd details, check whether one is lit.
 
 ## Settings
 

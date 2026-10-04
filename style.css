@@ -296,6 +296,266 @@ dialog:has(.chatnav_hub) .popup-controls {
     display: none;
 }
 
+/* ---------- 이 채팅 정보 (페르소나·로어북) ---------- */
+
+.chatnav_info {
+    gap: 14px;
+}
+
+.chatnav_info_section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.chatnav_info_title {
+    font-weight: 600;
+}
+
+.chatnav_info_title i {
+    width: 1.2em;
+    opacity: 0.7;
+}
+
+.chatnav_info_persona {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.chatnav_info_avatar {
+    width: 44px;
+    height: 44px;
+    flex: none;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.chatnav_info_persona select {
+    flex: 1;
+    min-width: 0;
+}
+
+.chatnav_info_check {
+    min-height: 44px;
+    align-items: center;
+}
+
+/* 접는 칸: 머리를 누르면 펼침. 불빛으로 내용 유무 표시 */
+.chatnav_info_fold_head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+
+.chatnav_info_fold_head::-webkit-details-marker {
+    display: none;
+}
+
+.chatnav_info_lamp {
+    width: 9px;
+    height: 9px;
+    margin-left: 4px;
+    flex: none;
+    border-radius: 50%;
+    /* 꺼진 불: 테마 글자색을 옅게 */
+    background-color: color-mix(in srgb, var(--SmartThemeBodyColor) 30%, transparent);
+}
+
+.chatnav_info_lamp_text {
+    font-size: 0.85em;
+    font-weight: normal;
+    opacity: 0.7;
+}
+
+.chatnav_info_fold[data-lamp="on"] .chatnav_info_lamp {
+    background-color: #4cd964;
+    box-shadow: 0 0 6px #4cd964;
+}
+
+.chatnav_info_fold[data-lamp="warn"] .chatnav_info_lamp {
+    background-color: #f5b041;
+    box-shadow: 0 0 6px #f5b041;
+}
+
+.chatnav_info_fold_chevron {
+    margin-left: auto;
+    opacity: 0.6;
+    transition: transform 0.15s;
+}
+
+.chatnav_info_fold[open] .chatnav_info_fold_chevron {
+    transform: rotate(180deg);
+}
+
+/* details는 flex 컨테이너가 안 되는 브라우저가 있어 블록으로 두고 간격을 따로 준다 */
+.chatnav_info_fold {
+    display: block;
+}
+
+.chatnav_info_fold > :not(summary) {
+    margin-top: 6px;
+}
+
+.chatnav_info_fold > textarea {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.chatnav_info_world_row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.chatnav_info_world_row select {
+    flex: 1;
+    min-width: 0;
+}
+
+.chatnav_info_icon_button {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chatnav_info_icon_button:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.chatnav_info_label {
+    font-size: 0.9em;
+    opacity: 0.85;
+    margin-top: 4px;
+}
+
+.chatnav_info_file {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.chatnav_info_stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    font-size: 0.9em;
+    opacity: 0.85;
+}
+
+textarea.chatnav_info_note {
+    min-height: 88px;
+    resize: vertical;
+}
+
+.chatnav_info_fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+}
+
+.chatnav_info_fields label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9em;
+}
+
+.chatnav_info_fields label[hidden] {
+    display: none;
+}
+
+.chatnav_info_fields .text_pole {
+    width: auto;
+    min-height: 40px;
+    margin: 0;
+    font-size: 16px; /* iOS 확대 방지 */
+}
+
+.chatnav_info_fields input[type="number"] {
+    width: 5em;
+}
+
+.chatnav_info_override,
+.chatnav_info_book_row {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    font-size: 0.9em;
+}
+
+.chatnav_info_override_label,
+.chatnav_info_book_label {
+    flex: none;
+    width: 7.5em;
+    opacity: 0.75;
+    overflow-wrap: anywhere;
+}
+
+.chatnav_info_override_value {
+    opacity: 0.6;
+    overflow-wrap: anywhere;
+}
+
+.chatnav_info_set .chatnav_info_override_value {
+    opacity: 1;
+}
+
+.chatnav_info_override_edit {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    min-height: 44px;
+    padding: 0 14px;
+    margin: 2px 0 0;
+}
+
+.chatnav_info_chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    min-width: 0;
+}
+
+.chatnav_info_owner {
+    flex-basis: 100%;
+    font-size: 0.9em;
+    opacity: 0.75;
+    overflow-wrap: anywhere;
+}
+
+.chatnav_info_owner i {
+    margin-right: 5px;
+    font-size: 0.85em;
+}
+
+.chatnav_info_chip {
+    padding: 1px 8px;
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 10px;
+    background-color: var(--black30a);
+    overflow-wrap: anywhere;
+}
+
+.chatnav_info_missing {
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+
+.chatnav_info_none {
+    opacity: 0.5;
+}
+
 /* ---------- 책갈피 ---------- */
 
 .chatnav_bookmark_row {

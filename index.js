@@ -1,4 +1,4 @@
-// 채팅 내비게이터: 마법봉 메뉴 하나로 현재 채팅 검색, 번호로 이동, 책갈피, 범위 숨기기·삭제, 골라서 숨기기·삭제, 맨 위/아래(떠 있는 버튼도), 답변 처음부터 읽기, 읽던 위치 이어 보기, 현재 위치 표시.
+// 채팅 내비게이터: 마법봉 메뉴 하나로 현재 채팅 검색, 번호로 이동, 책갈피, 이 채팅 정보(페르소나·작가 노트·덮어쓰기·로어북), 범위 숨기기·삭제, 골라서 숨기기·삭제, 맨 위/아래(떠 있는 버튼도), 답변 처음부터 읽기, 읽던 위치 이어 보기, 현재 위치 표시.
 // 덤으로 N턴마다 / N토큰마다 알림을 띄운다.
 
 const MODULE = 'chat-navigator';
@@ -963,6 +963,414 @@ async function applyDelete() {
     }
 }
 
+// ---------- 이 채팅 정보 ----------
+// 지금 열린 채팅만 다룬다. 요약, 페르소나, 작가 노트, 채팅 덮어쓰기, 로어북.
+// 페르소나·작가 노트·덮어쓰기·로어북 값은 모두 chat_metadata에 들어 있다.
+// getContext에 없는 기능은 ST 모듈(personas.js, world-info.js, script.js)을 직접 쓴다.
+
+const CHAT_LOREBOOK_KEY = 'world_info';
+
+const stModules = {};
+function stModule(path) {
+    stModules[path] ??= import(path);
+    return stModules[path];
+}
+const getPersonas = () => stModule('../../../personas.js');
+const getWorldInfo = () => stModule('../../../world-info.js');
+const getScript = () => stModule('../../../../script.js');
+
+function personaNames() {
+    const personas = ctx().powerUserSettings.personas ?? {};
+    return Object.entries(personas)
+        .map(([key, name]) => ({ key, name: String(name || key) }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function setChatLorebook(name) {
+    const { chatMetadata, saveMetadata } = ctx();
+    if (name) {
+        chatMetadata[CHAT_LOREBOOK_KEY] = name;
+    } else {
+        delete chatMetadata[CHAT_LOREBOOK_KEY];
+    }
+    $('.chat_lorebook_button').toggleClass('world_set', !!name);
+    await saveMetadata();
+}
+
+/** 지금 채팅의 캐릭터(그룹이면 멤버 전부)에 묶인 로어북 */
+function characterLorebooks(worldInfo) {
+    const c = ctx();
+    const members = c.groupId
+        ? (c.groups.find(g => g.id == c.groupId)?.members ?? []).map(avatar => c.characters.find(ch => ch.avatar === avatar))
+        : [c.characters[c.characterId]];
+    const result = [];
+    for (const character of members.filter(Boolean)) {
+        const file = character.avatar?.replace(/\.[^/.]+$/, '');
+        const books = [
+            character.data?.extensions?.world,
+            ...(worldInfo.world_info?.charLore?.find(e => e.name === file)?.extraBooks ?? []),
+        ].filter(Boolean);
+        if (books.length) result.push({ name: character.name, books: [...new Set(books)] });
+    }
+    return result;
+}
+
+function formatSendDate(value) {
+    if (!value) return '';
+    const date = ctx().timestampToMoment?.(value);
+    return date?.isValid?.() ? date.format('YYYY-MM-DD HH:mm') : String(value);
+}
+
+function previewText(text, max = 80) {
+    const flat = String(text ?? '').replace(/\s+/g, ' ').trim();
+    return flat.length > max ? flat.slice(0, max) + '…' : flat;
+}
+
+// 잘 안 쓰는 칸(작가 노트·덮어쓰기)은 접어 두고, 머리에 불빛으로 내용이 있는지만 보여 준다.
+function foldSummary(icon, title) {
+    return `
+        <summary class="chatnav_info_title chatnav_info_fold_head">
+            <i class="fa-solid ${icon}"></i>
+            <span>${title}</span>
+            <span class="chatnav_info_lamp"></span>
+            <span class="chatnav_info_lamp_text"></span>
+            <i class="fa-solid fa-chevron-down chatnav_info_fold_chevron"></i>
+        </summary>`;
+}
+
+/** state: on(초록) / warn(노랑, 내용은 있지만 적용 안 됨) / off(회색) */
+function setLamp(fold, state, text) {
+    fold.dataset.lamp = state;
+    fold.querySelector('.chatnav_info_lamp_text').textContent = text;
+}
+
+// 작가 노트는 ST의 작가 노트 패널 입력칸에 값을 넣고 이벤트를 보낸다.
+// 그래야 저장·토큰 카운터·패널 표시가 ST 방식 그대로 맞춰진다.
+const AN_POSITION = { before: 2, after: 0, chat: 1 };
+
+function setAuthorsNote(field, value) {
+    switch (field) {
+        case 'prompt':
+            $('#extension_floating_prompt').val(value).trigger('input');
+            break;
+        case 'interval':
+            $('#extension_floating_interval').val(value).trigger('input');
+            break;
+        case 'depth':
+            $('#extension_floating_depth').val(value).trigger('input');
+            break;
+        case 'role':
+            $('#extension_floating_role').val(value).trigger('input');
+            break;
+        case 'position':
+            $(`input[name="extension_floating_position"][value="${value}"]`).prop('checked', true).trigger('change');
+            break;
+    }
+}
+
+async function openChatInfoPopup() {
+    if (!hasChat()) return;
+    const { Popup, POPUP_TYPE } = ctx();
+    const [personas, worldInfo] = await Promise.all([getPersonas(), getWorldInfo()]);
+
+    const root = document.createElement('div');
+    root.className = 'chatnav_search chatnav_info';
+    root.innerHTML = `
+        <h3>이 채팅 정보</h3>
+
+        <div class="chatnav_info_section">
+            <div class="chatnav_info_summary"></div>
+        </div>
+
+        <div class="chatnav_info_section">
+            <div class="chatnav_info_title"><i class="fa-solid fa-user"></i> 페르소나</div>
+            <div class="chatnav_info_persona">
+                <img class="chatnav_info_avatar" alt="">
+                <select class="text_pole chatnav_input chatnav_info_persona_select"></select>
+            </div>
+            <label class="checkbox_label chatnav_info_check">
+                <input type="checkbox" class="chatnav_info_lock">
+                <span>이 채팅에 고정</span>
+            </label>
+            <div class="chatnav_status chatnav_info_persona_status"></div>
+        </div>
+
+        <details class="chatnav_info_section chatnav_info_fold chatnav_info_note_fold">
+            ${foldSummary('fa-feather-pointed', '작가 노트')}
+            <textarea class="text_pole chatnav_input chatnav_info_note" rows="4" placeholder="비어 있으면 넣지 않습니다."></textarea>
+            <div class="chatnav_info_fields">
+                <label>위치
+                    <select class="text_pole chatnav_info_note_position">
+                        <option value="${AN_POSITION.before}">시나리오 앞</option>
+                        <option value="${AN_POSITION.after}">시나리오 뒤</option>
+                        <option value="${AN_POSITION.chat}">채팅 안</option>
+                    </select>
+                </label>
+                <label class="chatnav_info_in_chat">깊이
+                    <input type="number" min="0" max="9999" class="text_pole chatnav_info_note_depth">
+                </label>
+                <label class="chatnav_info_in_chat">역할
+                    <select class="text_pole chatnav_info_note_role">
+                        <option value="0">시스템</option>
+                        <option value="1">사용자</option>
+                        <option value="2">AI</option>
+                    </select>
+                </label>
+                <label>간격
+                    <input type="number" min="0" max="999" class="text_pole chatnav_info_note_interval">
+                </label>
+            </div>
+            <div class="chatnav_status chatnav_info_note_status"></div>
+        </details>
+
+        <details class="chatnav_info_section chatnav_info_fold chatnav_info_override_fold">
+            ${foldSummary('fa-masks-theater', '채팅 덮어쓰기')}
+            <div class="chatnav_info_overrides"></div>
+            <button type="button" class="menu_button chatnav_info_override_edit">
+                <i class="fa-solid fa-pen"></i> 편집
+            </button>
+        </details>
+
+        <div class="chatnav_info_section">
+            <div class="chatnav_info_title"><i class="fa-solid fa-book-atlas"></i> 로어북</div>
+            <div class="chatnav_info_label">채팅 로어북 <small>(이 채팅에서만)</small></div>
+            <div class="chatnav_info_world_row">
+                <select class="text_pole chatnav_input chatnav_info_world_select"></select>
+                <button type="button" class="menu_button chatnav_info_icon_button chatnav_info_world_open fa-solid fa-pen" title="로어북 편집기에서 열기" aria-label="로어북 편집기에서 열기"></button>
+                <button type="button" class="menu_button chatnav_info_icon_button chatnav_info_world_new fa-solid fa-plus" title="새 로어북 만들어 연결" aria-label="새 로어북 만들어 연결"></button>
+            </div>
+            <div class="chatnav_status chatnav_info_world_status"></div>
+            <div class="chatnav_info_label">지금 적용되는 로어북</div>
+            <div class="chatnav_info_books"></div>
+        </div>
+    `;
+    const find = (selector) => root.querySelector(selector);
+
+    // ----- 요약 -----
+    const renderSummary = () => {
+        const { chat, getCurrentChatId } = ctx();
+        const hidden = chat.filter(m => m?.is_system).length;
+        const first = formatSendDate(chat[0]?.send_date);
+        const last = formatSendDate(chat[chat.length - 1]?.send_date);
+        find('.chatnav_info_summary').innerHTML = `
+            <div class="chatnav_info_file">${escapeHtml(getCurrentChatId())}</div>
+            <div class="chatnav_info_stats">
+                <span>메시지 <b>${chat.length.toLocaleString()}</b>개${hidden ? ` · 숨김 ${hidden.toLocaleString()}개` : ''}</span>
+                <span>토큰 <b class="chatnav_info_tokens">계산 중…</b></span>
+                ${first ? `<span>${escapeHtml(first)}${last && last !== first ? ` ~ ${escapeHtml(last)}` : ''}</span>` : ''}
+            </div>`;
+        const tokens = find('.chatnav_info_tokens');
+        countChatTokens()
+            .then(total => { tokens.textContent = `약 ${total.toLocaleString()}`; })
+            .catch(() => { tokens.textContent = '알 수 없음'; });
+    };
+
+    // ----- 페르소나 -----
+    const personaSelect = find('.chatnav_info_persona_select');
+    const lock = find('.chatnav_info_lock');
+
+    const renderPersona = () => {
+        const current = personas.user_avatar;
+        const list = personaNames();
+        // 페르소나로 저장되지 않은 이름·아바타로 대화 중일 수도 있다
+        if (current && !list.some(p => p.key === current)) {
+            list.unshift({ key: current, name: `${ctx().name1} (저장 안 된 페르소나)` });
+        }
+        personaSelect.innerHTML = list
+            .map(p => `<option value="${escapeHtml(p.key)}"${p.key === current ? ' selected' : ''}>${escapeHtml(p.name)}</option>`)
+            .join('');
+        const avatar = find('.chatnav_info_avatar');
+        avatar.src = current ? ctx().getThumbnailUrl('persona', current) : '';
+        avatar.hidden = !current;
+
+        const locked = personas.isPersonaLocked('chat');
+        lock.checked = locked;
+        const lockedKey = ctx().chatMetadata.persona;
+        const status = find('.chatnav_info_persona_status');
+        if (locked) {
+            status.textContent = '이 채팅을 열면 항상 이 페르소나로 바뀝니다.';
+        } else if (lockedKey) {
+            const name = ctx().powerUserSettings.personas?.[lockedKey] ?? lockedKey;
+            status.textContent = `이 채팅은 '${name}'에 고정되어 있지만 지금은 다른 페르소나입니다.`;
+        } else {
+            status.textContent = '고정 안 됨. 지금 선택된 페르소나로 대화합니다.';
+        }
+    };
+
+    personaSelect.addEventListener('change', async () => {
+        const wasLocked = personas.isPersonaLocked('chat');
+        await personas.setUserAvatar(personaSelect.value);
+        // 고정돼 있었으면 바꾼 페르소나로 다시 고정 (자동 고정 설정이 켜져 있으면 ST가 이미 했다)
+        if (wasLocked && !personas.isPersonaLocked('chat')) {
+            await personas.setPersonaLockState(true, 'chat');
+        }
+        renderPersona();
+        renderBooks(); // 페르소나 로어북이 바뀔 수 있다
+    });
+
+    lock.addEventListener('change', async () => {
+        await personas.setPersonaLockState(lock.checked, 'chat');
+        renderPersona();
+    });
+
+    // ----- 작가 노트 -----
+    const note = find('.chatnav_info_note');
+    const notePosition = find('.chatnav_info_note_position');
+    const noteDepth = find('.chatnav_info_note_depth');
+    const noteRole = find('.chatnav_info_note_role');
+    const noteInterval = find('.chatnav_info_note_interval');
+
+    const renderNoteStatus = () => {
+        const meta = ctx().chatMetadata;
+        const inChat = Number(meta.note_position) === AN_POSITION.chat;
+        root.querySelectorAll('.chatnav_info_in_chat').forEach(el => el.hidden = !inChat);
+        const interval = Number(meta.note_interval);
+        const status = find('.chatnav_info_note_status');
+        const fold = find('.chatnav_info_note_fold');
+        if (!String(meta.note_prompt ?? '').trim()) {
+            status.textContent = '비어 있어서 넣지 않습니다.';
+            setLamp(fold, 'off', '비어 있음');
+        } else if (!interval) {
+            status.textContent = '간격이 0이라 넣지 않습니다.';
+            setLamp(fold, 'warn', '내용 있음 · 꺼짐');
+        } else {
+            status.textContent = interval === 1 ? '매번 넣습니다.' : `메시지 ${interval}개마다 넣습니다.`;
+            setLamp(fold, 'on', '사용 중');
+        }
+    };
+
+    const renderNote = () => {
+        const meta = ctx().chatMetadata;
+        note.value = meta.note_prompt ?? '';
+        notePosition.value = String(meta.note_position ?? AN_POSITION.after);
+        noteDepth.value = meta.note_depth ?? 4;
+        noteRole.value = String(meta.note_role ?? 0);
+        noteInterval.value = meta.note_interval ?? 1;
+        renderNoteStatus();
+    };
+
+    note.addEventListener('input', () => { setAuthorsNote('prompt', note.value); renderNoteStatus(); });
+    notePosition.addEventListener('change', () => { setAuthorsNote('position', notePosition.value); renderNoteStatus(); });
+    noteDepth.addEventListener('input', () => { setAuthorsNote('depth', noteDepth.value); renderNoteStatus(); });
+    noteRole.addEventListener('change', () => { setAuthorsNote('role', noteRole.value); renderNoteStatus(); });
+    noteInterval.addEventListener('input', () => { setAuthorsNote('interval', noteInterval.value); renderNoteStatus(); });
+
+    // ----- 채팅 덮어쓰기 (편집은 ST 자체 창으로) -----
+    const renderOverrides = () => {
+        const meta = ctx().chatMetadata;
+        const rows = [
+            ['시나리오', meta.scenario],
+            ['예시 대화', meta.mes_example],
+            ['시스템 프롬프트', meta.system_prompt],
+        ];
+        find('.chatnav_info_overrides').innerHTML = rows.map(([label, value]) => `
+            <div class="chatnav_info_override${value ? ' chatnav_info_set' : ''}">
+                <span class="chatnav_info_override_label">${label}</span>
+                <span class="chatnav_info_override_value">${value ? escapeHtml(previewText(value)) : '없음 (캐릭터 카드 그대로)'}</span>
+            </div>`).join('');
+        const used = rows.filter(([, value]) => value).length;
+        setLamp(find('.chatnav_info_override_fold'), used ? 'on' : 'off', used ? `${used}개 사용 중` : '없음');
+    };
+
+    find('.chatnav_info_override_edit').addEventListener('click', async () => {
+        const script = await getScript();
+        await script.setCharacterSettingsOverrides();
+        renderOverrides();
+    });
+
+    // ----- 로어북 -----
+    const worldSelect = find('.chatnav_info_world_select');
+
+    const renderWorld = () => {
+        const names = ctx().getWorldInfoNames();
+        const current = ctx().chatMetadata[CHAT_LOREBOOK_KEY] ?? '';
+        const missing = current && !names.includes(current);
+        worldSelect.innerHTML = [
+            '<option value="">(없음)</option>',
+            missing ? `<option value="${escapeHtml(current)}" selected>${escapeHtml(current)} (찾을 수 없음)</option>` : '',
+            ...names.map(name => `<option value="${escapeHtml(name)}"${name === current ? ' selected' : ''}>${escapeHtml(name)}</option>`),
+        ].join('');
+        find('.chatnav_info_world_open').disabled = !current || missing;
+        find('.chatnav_info_world_status').textContent = !current
+            ? '이 채팅에만 쓰는 로어북이 없습니다.'
+            : missing
+                ? '연결된 로어북 파일이 없어서 적용되지 않습니다.'
+                : '이 채팅에서만 추가로 적용됩니다.';
+    };
+
+    const renderBooks = () => {
+        const names = ctx().getWorldInfoNames();
+        const chip = (book) => names.includes(book)
+            ? `<span class="chatnav_info_chip">${escapeHtml(book)}</span>`
+            : `<span class="chatnav_info_chip chatnav_info_missing" title="파일을 찾을 수 없음">${escapeHtml(book)}</span>`;
+        // 캐릭터 이름은 왼쪽 칸에 넣으면 길 때 정렬이 깨져서, 오른쪽 칩 위에 따로 한 줄로 둔다
+        const group = (label, books, owner = '') => `
+            <div class="chatnav_info_book_row">
+                <span class="chatnav_info_book_label">${label}</span>
+                <span class="chatnav_info_chips">
+                    ${owner ? `<span class="chatnav_info_owner"><i class="fa-solid fa-user"></i>${escapeHtml(owner)}</span>` : ''}
+                    ${books.length ? books.map(chip).join('') : '<span class="chatnav_info_none">없음</span>'}
+                </span>
+            </div>`;
+
+        const chatBook = ctx().chatMetadata[CHAT_LOREBOOK_KEY];
+        const personaBook = ctx().powerUserSettings.persona_description_lorebook;
+        const characters = characterLorebooks(worldInfo);
+        const charRows = characters.length
+            ? characters.map((c, i) => group(i ? '' : '캐릭터', c.books, c.name)).join('')
+            : group('캐릭터', []);
+
+        find('.chatnav_info_books').innerHTML = [
+            group('채팅', chatBook ? [chatBook] : []),
+            charRows,
+            group('페르소나', personaBook ? [personaBook] : []),
+            group('전역', [...(worldInfo.selected_world_info ?? [])]),
+        ].join('');
+    };
+
+    worldSelect.addEventListener('change', async () => {
+        await setChatLorebook(worldSelect.value);
+        renderWorld();
+        renderBooks();
+    });
+
+    renderSummary();
+    renderPersona();
+    renderNote();
+    renderOverrides();
+    renderWorld();
+    renderBooks();
+
+    // 편집기는 ST 왼쪽 서랍이라, 이 창을 닫고 연다
+    const openEditor = async (name) => {
+        await popup.completeCancelled();
+        worldInfo.openWorldInfoEditor(name);
+    };
+
+    find('.chatnav_info_world_open').addEventListener('click', () => openEditor(worldSelect.value));
+
+    find('.chatnav_info_world_new').addEventListener('click', async () => {
+        const { callGenericPopup, POPUP_TYPE: TYPE, getCurrentChatId } = ctx();
+        const input = await callGenericPopup(
+            '<span class="chatnav_popup">새 로어북 이름<br><small>만든 뒤 이 채팅에 연결하고 편집기를 엽니다.</small></span>',
+            TYPE.INPUT, getCurrentChatId(), { okButton: '만들기', cancelButton: '취소' });
+        const name = typeof input === 'string' ? input.trim() : '';
+        if (!name) return;
+        // ST 생성 함수는 같은 이름이 있으면 덮어쓸지 묻는데, 실수로 기존 로어북을 날리지 않게 여기서 막는다
+        if (ctx().getWorldInfoNames().includes(name)) {
+            toastr.warning(`'${name}' 로어북이 이미 있습니다. 목록에서 고르거나 다른 이름을 쓰세요.`);
+            return;
+        }
+        if (!await worldInfo.createNewWorldInfo(name)) return;
+        await setChatLorebook(name);
+        toastr.success(`'${name}' 로어북을 만들어 이 채팅에 연결했습니다.`);
+        await openEditor(name);
+    });
+
+    const popup = new Popup(root, POPUP_TYPE.TEXT, '', { okButton: '닫기', leftAlign: true, allowVerticalScrolling: true });
+    await popup.show();
+}
+
 // ---------- 메뉴판 ----------
 
 async function openHub() {
@@ -980,6 +1388,7 @@ async function openHub() {
         hide: openHidePopup,
         pick: enterSelectMode,
         delete: openDeletePopup,
+        info: openChatInfoPopup,
     };
 
     // 검색 / 이동(3칸) / 책갈피 / 정리(목록) 로 묶는다
@@ -1023,6 +1432,10 @@ async function openHub() {
 
         <div class="chatnav_hub_card">
             ${row('bookmarks', 'fa-star', '책갈피', `<span class="chatnav_hub_badge${marks ? '' : ' chatnav_zero'}">${marks}</span>`)}
+        </div>
+
+        <div class="chatnav_hub_card">
+            ${row('info', 'fa-circle-info', '이 채팅 정보')}
         </div>
 
         <div class="chatnav_hub_section">정리</div>
