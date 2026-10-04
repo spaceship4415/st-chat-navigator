@@ -54,6 +54,15 @@ Add a bookmark from the message itself: tap `⋯` on a message, then ☆. Tap �
 The same `⋯` menu also gets a 🗑 button that deletes just that message, without going into edit mode first.
 It asks before deleting, and asks separately if the message is bookmarked.
 
+Bookmarks are not SillyTavern's own *Branch* or *Checkpoint*:
+
+| | Bookmark (this extension) | Branch (SillyTavern) | Checkpoint (SillyTavern) |
+| --- | --- | --- | --- |
+| What it does | **Marks** a message in the current chat | **Copies** the chat up to that message into a new chat | **Copies** the chat up to that message into a new chat |
+| Afterwards | Nothing changes | **Switches to the new chat** | **Stays in the current chat**; the message gets a flag |
+| Going back | Tap it in the bookmark list to scroll there | Open `… - Branch #1` from the chat list | Tap the flag to open that chat |
+| Use it to | Mark scenes to revisit, like a table of contents | Try a different turn of events right away | Save this point and keep going in the original |
+
 In pick mode the message box is replaced by a bar with the count and the actions.
 Tapping a message only ticks it — editing, swiping and links are paused until you press **Done**.
 Pick mode ends by itself when a reply starts generating or you switch chats.
