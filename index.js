@@ -349,7 +349,7 @@ const BOOKMARK_KEY = 'chatnav_bookmark';
 const NOTE_KEY = 'chatnav_bookmark_note';
 const NOTE_MAX = 40;
 const BOOKMARK_BUTTON = '<div title="책갈피" class="mes_button chatnav_bookmark_button fa-regular fa-star"></div>';
-const DELETE_BUTTON = '<div title="이 메시지 삭제" class="mes_button chatnav_delete_button fa-solid fa-trash-can"></div>';
+const DELETE_BUTTON = '<div title="삭제 (스와이프·메시지)" class="mes_button chatnav_delete_button fa-solid fa-trash-can"></div>';
 
 function isBookmarked(message) {
     return !!message?.extra?.[BOOKMARK_KEY];
@@ -439,8 +439,11 @@ function addBookmarkButtons() {
         if (!$(this).find('.chatnav_delete_button').length) $(this).append(DELETE_BUTTON);
     });
     $(document).on('click', '.chatnav_delete_button', function () {
-        const message = ctx().chat[Number($(this).closest('.mes').attr('mesid'))];
-        if (message) confirmAndDelete([message]);
+        const index = Number($(this).closest('.mes').attr('mesid'));
+        const message = ctx().chat[index];
+        if (!message) return;
+        if (message.swipes?.length > 1) deleteSwipeOrMessage(index, message);
+        else confirmAndDelete([message]);
     });
 
     // 채팅 전환·이전 메시지 불러오기 등으로 메시지가 다시 그려지면 표시를 맞춘다.
@@ -716,6 +719,35 @@ async function confirmAndDelete(messages) {
     } finally {
         if (progress) toastr.clear(progress);
     }
+    return true;
+}
+
+/**
+ * ⋯ 메뉴 삭제에서 스와이프가 여러 개인 메시지. ST 편집창 삭제처럼 스와이프만 지울지 메시지째 지울지 묻는다.
+ * 기본(엔터)은 덜 위험한 '이 스와이프만'. 메시지째는 기존 확인 흐름(책갈피 묻기·마지막 확인)을 그대로 탄다.
+ */
+async function deleteSwipeOrMessage(index, message) {
+    const { callGenericPopup, POPUP_TYPE, POPUP_RESULT } = ctx();
+    const DELETE_MESSAGE = 2;
+    const swipeId = Number(message.swipe_id ?? 0);
+    const result = await callGenericPopup(`
+        <span class="chatnav_popup">
+            <b>#${index}</b> 메시지에 스와이프가 <b>${message.swipes.length}개</b> 있습니다.<br>
+            지금 보이는 스와이프(${swipeId + 1}/${message.swipes.length})만 지울까요?<br>
+            되돌릴 수 없습니다.
+        </span>`, POPUP_TYPE.CONFIRM, '', {
+        okButton: '이 스와이프만 삭제',
+        cancelButton: '취소',
+        customButtons: [{ text: '메시지 전체 삭제', result: DELETE_MESSAGE, classes: ['chatnav_danger_button'] }],
+    });
+    if (result === DELETE_MESSAGE) return confirmAndDelete([message]);
+    if (result !== POPUP_RESULT.AFFIRMATIVE) return false;
+
+    // 확인 창을 띄운 사이 채팅이 바뀌었을 수 있으니 번호를 다시 찾는다
+    const current = ctx().chat.indexOf(message);
+    if (current < 0 || !(message.swipes?.length > 1)) return false;
+    await ctx().deleteMessage(current, Number(message.swipe_id ?? 0));
+    toastr.success(`#${current} 스와이프를 삭제했습니다.`, '', { timeOut: 1500 });
     return true;
 }
 
