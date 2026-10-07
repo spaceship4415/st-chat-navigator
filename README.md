@@ -25,7 +25,7 @@ and hide or delete a range of messages — all with buttons sized for a phone.
   The Author's Note and chat overrides start folded, with a light by the title: green when in use, amber when the note has text but its interval is 0, grey when empty.
 - **Hide a range** — keep messages on screen but leave them out of what the AI sees, to save tokens. *Show* brings them back.
   The range starts out leaving the latest 20 messages untouched.
-- **Delete a range** — starts empty and asks twice, saying how many messages will go.
+- **Delete a range** — starts empty and asks twice, saying how many messages will go. If deleting from the end pulls hidden ones into the last 20, it offers to unhide them so the AI still gets recent context.
   If bookmarked messages are among them, it lists them first and offers to delete everything else instead (the default) or everything.
 - **Pick messages to hide or delete** — tap messages to tick them, or switch on *Range* and tap the first and the last.
   Scattered picks like `#3, #4, #5, #9` are handled in one go.

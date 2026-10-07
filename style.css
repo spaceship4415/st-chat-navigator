@@ -824,6 +824,12 @@ dialog:has(.chatnav_popup) .popup-input {
     color: var(--fullred, #e05555);
 }
 
+/* 삭제 확인의 '숨긴 메시지 다시 보이기' 체크 */
+dialog:has(#chatnav_unhide_tail) .popup-inputs .checkbox_label {
+    min-height: 44px;
+    text-align: left;
+}
+
 /* 삭제 범위에 책갈피가 섞였을 때 */
 .chatnav_mark_warn {
     display: block;

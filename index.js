@@ -663,7 +663,7 @@ function describeRuns(runs) {
  * 번호가 아니라 메시지 객체로 받아서, 확인 창을 띄운 사이 채팅이 바뀌어도 지울 때 번호를 다시 계산한다.
  */
 async function confirmAndDelete(messages) {
-    const { chat, callGenericPopup, POPUP_TYPE, POPUP_RESULT } = ctx();
+    const { chat, callGenericPopup, Popup, POPUP_TYPE, POPUP_RESULT } = ctx();
     let targets = indicesOf(messages).map(i => chat[i]);
     if (!targets.length) return false;
 
@@ -715,11 +715,26 @@ async function confirmAndDelete(messages) {
         indices.length > FAR_JUMP ? '개수가 많아 시간이 걸릴 수 있습니다.' : '',
         '되돌릴 수 없습니다.',
     ].filter(Boolean);
-    const confirmed = await callGenericPopup(`<span class="chatnav_popup">${lines.join('<br>')}</span>`, POPUP_TYPE.CONFIRM, '', {
+
+    // 끝쪽 메시지를 지우면(되돌리고 다시 이어 쓸 때) 앞쪽의 숨긴 메시지가 최근 KEEP_RECENT개 안으로 들어와 AI에게 보낼 게 줄어든다.
+    // 그렇게 새로 들어오는 숨긴 메시지만 다시 보이게 할지 묻는다. 원래 최근 범위 안에서 숨긴 건 그대로 둔다.
+    // 마지막 메시지가 안 지워지는 중간 삭제는 대화를 이어 쓰는 게 아니니 묻지 않는다.
+    const removed = new Set(targets);
+    const tailBefore = new Set(chat.slice(-KEEP_RECENT));
+    const revealed = !removed.has(chat[chat.length - 1]) ? [] : chat.filter(m => !removed.has(m)).slice(-KEEP_RECENT)
+        .filter(m => m?.is_system && !tailBefore.has(m) && !Array.isArray(m.extra?.tool_invocations));
+    const UNHIDE_ID = 'chatnav_unhide_tail';
+    const popup = new Popup(`<span class="chatnav_popup">${lines.join('<br>')}</span>`, POPUP_TYPE.CONFIRM, '', {
         okButton: '삭제',
         cancelButton: '취소',
+        customInputs: revealed.length ? [{
+            id: UNHIDE_ID,
+            label: `앞의 숨긴 메시지 ${revealed.length}개 다시 보이기 (최근 ${KEEP_RECENT}개 유지)`,
+            defaultState: true,
+        }] : null,
     });
-    if (confirmed !== POPUP_RESULT.AFFIRMATIVE) return false;
+    if (await popup.show() !== POPUP_RESULT.AFFIRMATIVE) return false;
+    const unhideAfter = revealed.length && popup.inputResults?.get(UNHIDE_ID) === true;
 
     const progress = indices.length > 20
         ? toastr.info(`메시지 ${indices.length.toLocaleString()}개를 삭제하는 중…`, '', { timeOut: 0, extendedTimeOut: 0 })
@@ -729,7 +744,13 @@ async function confirmAndDelete(messages) {
         for (const run of toRuns(indicesOf(targets)).reverse()) {
             await ctx().executeSlashCommandsWithOptions(`/cut ${run.from}-${run.to}`);
         }
-        toastr.success(`메시지 ${indices.length.toLocaleString()}개를 삭제했습니다.` + (keptMarks ? ` (책갈피 ${keptMarks}개는 남김)` : ''));
+        const unhidden = unhideAfter ? indicesOf(revealed) : [];
+        for (const run of toRuns(unhidden)) {
+            await ctx().executeSlashCommandsWithOptions(`/unhide ${run.from}-${run.to}`);
+        }
+        toastr.success(`메시지 ${indices.length.toLocaleString()}개를 삭제했습니다.`
+            + (keptMarks ? ` (책갈피 ${keptMarks}개는 남김)` : '')
+            + (unhidden.length ? ` 숨긴 메시지 ${unhidden.length}개는 다시 보이게 했습니다.` : ''));
     } finally {
         if (progress) toastr.clear(progress);
     }
