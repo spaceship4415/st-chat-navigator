@@ -1,4 +1,4 @@
-// 채팅 내비게이터: 마법봉 메뉴 하나로 현재 채팅 검색, 번호로 이동, 책갈피, 이 채팅 정보(페르소나·작가 노트·덮어쓰기·로어북), 범위 숨기기·삭제, 골라서 숨기기·삭제, 맨 위/아래(떠 있는 버튼도), 답변 처음부터 읽기, 읽던 위치 이어 보기, 현재 위치 표시.
+// 채팅 내비게이터: 마법봉 메뉴 하나로 현재 채팅 검색, 번호로 이동, 책갈피, 이 채팅 정보(페르소나·작가 노트·덮어쓰기·로어북), 범위 숨기기·보이기·삭제, 골라서 숨기기·삭제, 맨 위/아래(떠 있는 버튼도), 답변 처음부터 읽기, 읽던 위치 이어 보기, 현재 위치 표시.
 // 덤으로 N턴마다 / N토큰마다 알림을 띄운다.
 
 const MODULE = 'chat-navigator';
@@ -101,12 +101,18 @@ function makePicker(popup) {
 
 async function openJumpPopup() {
     if (!hasChat()) return;
-    const { chat, callGenericPopup, POPUP_TYPE } = ctx();
+    const { chat, Popup, POPUP_TYPE } = ctx();
     const last = chat.length - 1;
-    const value = await callGenericPopup(`<span class="chatnav_popup">이동할 메시지 번호 (0 ~ ${last})</span>`, POPUP_TYPE.INPUT, '', {
+    const popup = new Popup(`
+        <div class="chatnav_popup chatnav_hide">
+            <h3>번호로 이동</h3>
+            <p class="chatnav_hint">이동할 메시지 번호 (0 ~ ${last})</p>
+        </div>`, POPUP_TYPE.INPUT, '', {
         okButton: '이동',
         cancelButton: '취소',
     });
+    addBackButton(popup);
+    const value = await popup.show();
     if (value === null || value === false || String(value).trim() === '') return;
 
     const index = Number(String(value).trim().replace(/^#/, ''));
@@ -181,6 +187,7 @@ async function openSearchPopup() {
         leftAlign: true,
         onOpen: () => input.focus(),
     });
+    addBackButton(popup);
 
     let current = { fragments: [], indices: [] };
     let shown = 0;
@@ -478,6 +485,7 @@ async function openBookmarksPopup() {
     const list = root.querySelector('.chatnav_results');
 
     const popup = new Popup(root, POPUP_TYPE.TEXT, '', { okButton: '닫기', wide: true, leftAlign: true });
+    addBackButton(popup);
     const pick = makePicker(popup);
 
     const render = () => {
@@ -575,18 +583,18 @@ function buildRangeForm({ title, hint, from = '', to = '', describe }) {
     return { root, readRange, last, focus: () => (fromInput.value === '' ? fromInput : toInput).focus() };
 }
 
-// ---------- 범위 숨기기 / 되돌리기 ----------
+// ---------- 범위 숨기기 / 보이기 ----------
 
 async function openHidePopup() {
     if (!hasChat()) return;
     const { chat, Popup, POPUP_TYPE, POPUP_RESULT } = ctx();
     if (!chat.length) return;
     const last = chat.length - 1;
-    const UNHIDE = 2;
+    const SHOW = 2;
 
     const form = buildRangeForm({
-        title: '범위 숨기기',
-        hint: `숨긴 메시지는 화면에 남지만 AI에게 보내지 않습니다. 처음 범위는 최근 ${KEEP_RECENT}개를 남기도록 잡혀 있습니다.`,
+        title: '범위 숨기기·보이기',
+        hint: `숨긴 메시지는 화면에 남지만 AI에게 보내지 않습니다. <b>보이기</b>를 누르면 다시 보냅니다. 처음 범위는 최근 ${KEEP_RECENT}개를 남기도록 잡혀 있습니다.`,
         // 기본값은 최근 KEEP_RECENT개를 남기는 범위. 바로 눌러도 전체가 숨겨지지 않게.
         // 메시지가 그보다 적으면 숨길 게 없으니 끝 칸을 비워 둔다.
         from: 0,
@@ -600,19 +608,25 @@ async function openHidePopup() {
     const popup = new Popup(form.root, POPUP_TYPE.CONFIRM, '', {
         okButton: '숨기기',
         cancelButton: '취소',
-        customButtons: [{ text: '되돌리기', result: UNHIDE }],
+        customButtons: [{ text: '보이기', result: SHOW, icon: 'fa-eye' }],
     });
+    // 확인 버튼은 아이콘 옵션이 없어 직접 넣는다. data-i18n을 지워야 번역이 글자를 덮으며 아이콘을 지우지 않는다.
+    const ok = popup.okButton;
+    ok.removeAttribute('data-i18n');
+    ok.classList.add('menu_button_icon');
+    ok.innerHTML = '<i class="fa-solid fa-eye-slash"></i><span>숨기기</span>';
+    addBackButton(popup);
     const result = await popup.show();
-    if (result !== POPUP_RESULT.AFFIRMATIVE && result !== UNHIDE) return;
+    if (result !== POPUP_RESULT.AFFIRMATIVE && result !== SHOW) return;
 
     const range = form.readRange();
     if (!range) {
         toastr.warning(`0 ~ ${last} 사이 번호를 넣으세요.`);
         return;
     }
-    const unhide = result === UNHIDE;
-    await ctx().executeSlashCommandsWithOptions(`/${unhide ? 'unhide' : 'hide'} ${range.from}-${range.to}`);
-    toastr.success(`#${range.from} ~ #${range.to} (${range.count.toLocaleString()}개)를 ${unhide ? '되돌렸습니다' : '숨겼습니다'}.`);
+    const show = result === SHOW;
+    await ctx().executeSlashCommandsWithOptions(`/${show ? 'unhide' : 'hide'} ${range.from}-${range.to}`);
+    toastr.success(`#${range.from} ~ #${range.to} (${range.count.toLocaleString()}개)를 ${show ? '다시 보이게 했습니다' : '숨겼습니다'}.`);
 }
 
 // ---------- 삭제 (범위·골라서 공용) ----------
@@ -775,6 +789,7 @@ async function openDeletePopup() {
         cancelButton: '취소',
         onOpen: form.focus,
     });
+    addBackButton(popup);
     if (await popup.show() !== POPUP_RESULT.AFFIRMATIVE) return;
 
     const range = form.readRange();
@@ -910,7 +925,7 @@ function enterSelectMode() {
         </div>
         <div class="chatnav_sel_row">
             <button type="button" class="menu_button" data-act="hide" data-needs-pick><i class="fa-solid fa-eye-slash"></i>숨기기</button>
-            <button type="button" class="menu_button" data-act="unhide" data-needs-pick><i class="fa-solid fa-eye"></i>되돌리기</button>
+            <button type="button" class="menu_button" data-act="unhide" data-needs-pick><i class="fa-solid fa-eye"></i>보이기</button>
             <button type="button" class="menu_button chatnav_danger" data-act="delete" data-needs-pick><i class="fa-solid fa-trash-can"></i>삭제</button>
             <button type="button" class="menu_button" data-act="done">완료</button>
         </div>
@@ -976,7 +991,7 @@ async function applyHide(unhide) {
         for (const run of toRuns(indices)) {
             await ctx().executeSlashCommandsWithOptions(`/${unhide ? 'unhide' : 'hide'} ${run.from}-${run.to}`);
         }
-        toastr.success(`메시지 ${indices.length.toLocaleString()}개를 ${unhide ? '되돌렸습니다' : '숨겼습니다'}.`);
+        toastr.success(`메시지 ${indices.length.toLocaleString()}개를 ${unhide ? '다시 보이게 했습니다' : '숨겼습니다'}.`);
         selection.picked.clear();
         updateSelectionBar();
     } finally {
@@ -1402,10 +1417,34 @@ async function openChatInfoPopup() {
     });
 
     const popup = new Popup(root, POPUP_TYPE.TEXT, '', { okButton: '닫기', leftAlign: true, allowVerticalScrolling: true });
+    addBackButton(popup);
     await popup.show();
 }
 
 // ---------- 메뉴판 ----------
+
+/**
+ * 메뉴판에서 연 팝업 제목 왼쪽에 '메뉴로' 버튼을 단다. 누르면 이 팝업을 취소로 닫고 메뉴판을 다시 연다.
+ * 팝업 버튼 줄은 폰에서 이미 꽉 차서 제목 줄에 둔다.
+ */
+function addBackButton(popup) {
+    const title = popup.content.querySelector('h3');
+    if (!title) return;
+    const bar = document.createElement('div');
+    bar.className = 'chatnav_titlebar';
+    title.replaceWith(bar);
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'chatnav_back';
+    back.title = '메뉴로';
+    back.setAttribute('aria-label', '메뉴로');
+    back.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+    back.addEventListener('click', async () => {
+        await popup.completeCancelled();
+        await openHub();
+    });
+    bar.append(back, title);
+}
 
 async function openHub() {
     if (!hasChat()) return;
@@ -1474,7 +1513,7 @@ async function openHub() {
 
         <div class="chatnav_hub_section">정리</div>
         <div class="chatnav_hub_card">
-            ${row('hide', 'fa-eye-slash', '범위 숨기기')}
+            ${row('hide', 'fa-eye-slash', '범위 숨기기·보이기')}
             ${row('pick', 'fa-list-check', '골라서 숨기기·삭제')}
             ${row('delete', 'fa-trash-can', '범위 삭제')}
         </div>

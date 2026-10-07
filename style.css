@@ -106,6 +106,38 @@
     margin: 0 0 10px;
 }
 
+/* 메뉴판에서 연 팝업의 제목 줄: [<] 제목 */
+.chatnav_titlebar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin: -6px 0 0 -10px;
+}
+
+.chatnav_titlebar h3 {
+    margin: 0;
+}
+
+.chatnav_back {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--SmartThemeBodyColor);
+    font: inherit;
+    font-size: 1.05em;
+    opacity: 0.6;
+    cursor: pointer;
+}
+
+.chatnav_back:hover,
+.chatnav_back:focus-visible {
+    opacity: 1;
+    background-color: var(--white20a);
+}
+
 /* ---------- 메뉴판 ---------- */
 
 .chatnav_hub {

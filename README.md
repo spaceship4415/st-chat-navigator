@@ -23,7 +23,7 @@ and hide or delete a range of messages — all with buttons sized for a phone.
   - **chat overrides** — whether this chat replaces the card's scenario, example messages or system prompt, with a preview; *Edit* opens SillyTavern's own override editor;
   - **lorebooks** — change or unbind the chat lorebook (✎ opens it in the editor; ＋ creates a new one, binds it and opens the editor — it never overwrites an existing name), and see every lorebook in effect: chat, character (each member in a group), persona and global. Missing files are struck through.
   The Author's Note and chat overrides start folded, with a light by the title: green when in use, amber when the note has text but its interval is 0, grey when empty.
-- **Hide a range** — keep messages on screen but leave them out of what the AI sees, to save tokens. Undo the same way.
+- **Hide a range** — keep messages on screen but leave them out of what the AI sees, to save tokens. *Show* brings them back.
   The range starts out leaving the latest 20 messages untouched.
 - **Delete a range** — starts empty and asks twice, saying how many messages will go.
   If bookmarked messages are among them, it lists them first and offers to delete everything else instead (the default) or everything.
